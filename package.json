@@ -1,16 +1,22 @@
 {
   "packageManager": "pnpm@10.29.3",
   "scripts": {
+    "dev": "tsx watch src/main.ts",
     "lint": "eslint \"src/**/*.ts\"",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
+    "tg:webhook:set": "tsx scripts/telegram-webhook.ts set",
+    "tg:webhook:info": "tsx scripts/telegram-webhook.ts info",
+    "tg:webhook:delete": "tsx scripts/telegram-webhook.ts delete",
+    "start": "tsx src/main.ts",
     "typecheck": "tsc --noEmit",
     "test": "echo \"No tests yet\""
   },
   "dependencies": {
     "@prisma/client": "^6.19.2",
+    "fastify": "^5.7.4",
     "telegraf": "^4.16.3",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
