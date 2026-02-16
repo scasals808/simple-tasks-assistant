@@ -1,22 +1,6 @@
-import { Markup, Scenes, Telegraf, session } from "telegraf";
+import { Markup, Telegraf } from "telegraf";
 
 import type { TaskService } from "../domain/tasks/task.service.js";
-import type { PendingDeletionRepoPrisma } from "../infra/db/pendingDeletion.repo.prisma.js";
-import { createTaskWizardScene } from "./scenes/createTask.scene.js";
-import type { BotContext } from "./scenes/createTask.scene.js";
-import {
-  processDueDeletions,
-  scheduleSentMessageDeletion,
-  sendEphemeral
-} from "./utils/ephemeral.js";
-
-type PendingTaskSource = {
-  sourceChatId: string;
-  sourceMessageId: string;
-  sourceText: string;
-  sourceLink: string | null;
-  creatorUserId: string;
-};
 
 function getEnv(name: string): string | undefined {
   return (
@@ -33,19 +17,40 @@ function getTelegramError(error: unknown): { code?: number; description?: string
   };
 }
 
+function logDeleteFailure(
+  ctx: {
+    update?: { update_id?: number };
+    from?: { id?: number };
+  },
+  chatId: number,
+  messageId: number,
+  error: unknown
+): void {
+  const info = getTelegramError(error);
+  console.warn("[bot.delete_message_failed]", {
+    chat_id: chatId,
+    message_id: messageId,
+    user_id: ctx.from?.id,
+    update_id: ctx.update?.update_id,
+    handler: "create_task",
+    telegram_error_code: info.code ?? null,
+    telegram_description: info.description ?? String(error)
+  });
+}
+
 async function deleteTechnicalMessage(
-  ctx: BotContext,
+  ctx: {
+    telegram: { deleteMessage(chatId: number, messageId: number): Promise<unknown> };
+    update?: { update_id?: number };
+    from?: { id?: number };
+  },
   chatId: number,
   messageId: number
 ): Promise<void> {
   try {
     await ctx.telegram.deleteMessage(chatId, messageId);
-    console.log(`[ui] delete_ok chatId=${chatId} messageId=${messageId}`);
   } catch (error: unknown) {
-    const info = getTelegramError(error);
-    console.warn(
-      `[ui] delete_failed chatId=${chatId} messageId=${messageId} code=${info.code ?? "unknown"} description=${info.description ?? String(error)}`
-    );
+    logDeleteFailure(ctx, chatId, messageId, error);
   }
 }
 
@@ -74,38 +79,19 @@ export function extractStartPayload(text: string | undefined): string | null {
 
 export function createBot(
   token: string,
-  taskService: TaskService,
-  pendingDeletionRepo: PendingDeletionRepoPrisma
-): Telegraf<BotContext> {
-  const bot = new Telegraf<BotContext>(token);
-  const pendingByToken = new Map<string, PendingTaskSource>();
+  taskService: TaskService
+): Telegraf {
+  const bot = new Telegraf(token);
+  let botUsername: string | null = getEnv("BOT_USERNAME") ?? null;
 
-  const createTaskScene = createTaskWizardScene(taskService, pendingByToken);
-  const stage = new Scenes.Stage<BotContext>([createTaskScene]);
-
-  const sendDmForTask = async (userId: string, tokenForTask: string): Promise<boolean> => {
-    try {
-      await bot.telegram.sendMessage(
-        Number(userId),
-        `Продолжим в личке 👇\nОтправьте /start ct_${tokenForTask}`
-      );
-      console.log(`[ui] dm_send_ok userId=${userId}`);
-      return true;
-    } catch (error: unknown) {
-      const info = getTelegramError(error);
-      console.warn(
-        `[ui] dm_send_failed userId=${userId} code=${info.code ?? "unknown"} description=${info.description ?? String(error)}`
-      );
-      return false;
+  const getBotUsername = async (): Promise<string | null> => {
+    if (botUsername) {
+      return botUsername;
     }
+    const me = await bot.telegram.getMe();
+    botUsername = me.username ?? null;
+    return botUsername;
   };
-
-  bot.use(session());
-  bot.use(async (ctx, next) => {
-    await processDueDeletions(ctx, pendingDeletionRepo);
-    await next();
-  });
-  bot.use(stage.middleware());
 
   bot.start(async (ctx) => {
     if (ctx.chat.type !== "private") {
@@ -113,12 +99,20 @@ export function createBot(
     }
 
     const payload = extractStartPayload((ctx.message as { text?: string }).text);
-    if (payload?.startsWith("ct_")) {
-      const tokenFromPayload = payload.replace("ct_", "");
-      if (pendingByToken.has(tokenFromPayload)) {
-        await ctx.scene.enter("create-task", { token: tokenFromPayload });
+    if (payload) {
+      const result = await taskService.finalizeDraft(payload, String(ctx.from.id));
+      if (!result) {
+        await ctx.reply("Черновик не найден");
         return;
       }
+
+      if (result.status === "ALREADY_EXISTS") {
+        await ctx.reply("Задача уже существует");
+        return;
+      }
+
+      await ctx.reply("Задача создана");
+      return;
     }
 
     await ctx.reply(
@@ -148,7 +142,7 @@ export function createBot(
     };
 
     if (!message.reply_to_message) {
-      await sendEphemeral(ctx, pendingDeletionRepo, "Reply to a message and send /task");
+      await ctx.reply("Reply to a message and send /task");
       return;
     }
 
@@ -161,7 +155,8 @@ export function createBot(
     }
 
     const tokenForTask = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    pendingByToken.set(tokenForTask, {
+    await taskService.createDraft({
+      token: tokenForTask,
       sourceChatId: String(message.chat.id),
       sourceMessageId: String(message.reply_to_message.message_id),
       sourceText: message.reply_to_message.text ?? message.reply_to_message.caption ?? "",
@@ -173,114 +168,37 @@ export function createBot(
       creatorUserId: String(message.from.id)
     });
 
-    const sent = await ctx.reply(
-      "Создать задачу из этого сообщения?",
+    await ctx.reply(
+      "Create task?",
       Markup.inlineKeyboard([
-        Markup.button.callback("➕ Создать задачу", `create_task:${tokenForTask}`)
+        Markup.button.callback("➕ Create task", `create_task:${tokenForTask}`)
       ])
-    );
-    console.log(
-      `[ui] group_message_sent chatId=${sent.chat.id} messageId=${sent.message_id}`
-    );
-    await scheduleSentMessageDeletion(
-      pendingDeletionRepo,
-      String(sent.chat.id),
-      String(sent.message_id),
-      30_000
     );
   });
 
   bot.action(/^create_task:(.+)$/, async (ctx) => {
-    await ctx.answerCbQuery();
-
     const callbackMessage = "message" in ctx.callbackQuery ? ctx.callbackQuery.message : undefined;
     const callbackChat =
       callbackMessage && "chat" in callbackMessage ? callbackMessage.chat : undefined;
     const callbackMessageId =
       callbackMessage && "message_id" in callbackMessage ? callbackMessage.message_id : undefined;
-    const callbackUserId = ctx.from?.id;
-    console.log(
-      `[ui] create_clicked chatId=${callbackChat?.id ?? "unknown"} messageId=${callbackMessageId ?? "unknown"} userId=${callbackUserId ?? "unknown"}`
-    );
-
     if (
       callbackChat &&
       callbackMessageId &&
       (callbackChat.type === "group" || callbackChat.type === "supergroup")
     ) {
-      try {
-        await deleteTechnicalMessage(ctx, callbackChat.id, callbackMessageId);
-      } catch {
-        // never throw from UI delete path
-      }
+      await deleteTechnicalMessage(ctx, callbackChat.id, callbackMessageId);
     }
 
     const tokenForTask = ctx.match[1];
-    const pending = pendingByToken.get(tokenForTask);
-
-    if (!pending || !ctx.from || pending.creatorUserId !== String(ctx.from.id)) {
-      await ctx.reply("Недоступно");
+    const username = await getBotUsername();
+    if (!username) {
+      await ctx.answerCbQuery("Ошибка");
       return;
     }
 
-    const me = await bot.telegram.getMe();
-    const botUsername = getEnv("BOT_USERNAME") ?? me.username;
-    if (!botUsername) {
-      await ctx.reply("Ошибка");
-      return;
-    }
-
-    const dmOk = await sendDmForTask(pending.creatorUserId, tokenForTask);
-    if (dmOk) {
-      return;
-    }
-
-    await ctx.reply(
-      "Продолжим в личке 👇",
-      Markup.inlineKeyboard([
-        [Markup.button.url("👤 Перейти в бота", `https://t.me/${botUsername}?start=task`)],
-        [Markup.button.callback("✅ Я открыл бота", `create_task_opened:${tokenForTask}`)]
-      ])
-    );
-  });
-
-  bot.action(/^create_task_opened:(.+)$/, async (ctx) => {
-    await ctx.answerCbQuery();
-
-    const tokenForTask = ctx.match[1];
-    const pending = pendingByToken.get(tokenForTask);
-    if (!pending || !ctx.from || pending.creatorUserId !== String(ctx.from.id)) {
-      await ctx.reply("Недоступно");
-      return;
-    }
-
-    const dmOk = await sendDmForTask(pending.creatorUserId, tokenForTask);
-    if (dmOk) {
-      const callbackMessage =
-        "message" in ctx.callbackQuery ? ctx.callbackQuery.message : undefined;
-      const callbackChat =
-        callbackMessage && "chat" in callbackMessage ? callbackMessage.chat : undefined;
-      const callbackMessageId =
-        callbackMessage && "message_id" in callbackMessage
-          ? callbackMessage.message_id
-          : undefined;
-      if (
-        callbackChat &&
-        callbackMessageId &&
-        (callbackChat.type === "group" || callbackChat.type === "supergroup")
-      ) {
-        await deleteTechnicalMessage(ctx, callbackChat.id, callbackMessageId);
-      }
-      return;
-    }
-
-    const me = await bot.telegram.getMe();
-    const botUsername = getEnv("BOT_USERNAME") ?? me.username ?? "";
-    await ctx.editMessageText("Я не могу написать в личку. Нажмите Start в боте и вернитесь сюда.", {
-      reply_markup: Markup.inlineKeyboard([
-        [Markup.button.url("👤 Перейти в бота", `https://t.me/${botUsername}?start=task`)],
-        [Markup.button.callback("✅ Я открыл бота", `create_task_opened:${tokenForTask}`)]
-      ]).reply_markup
+    await ctx.answerCbQuery(undefined, {
+      url: `https://t.me/${username}?start=${tokenForTask}`
     });
   });
 

@@ -22,7 +22,7 @@ function main() {
     console.log("[startup] running prisma migrate deploy");
     const migrateCode = run("pnpm", ["prisma", "migrate", "deploy"]);
     if (migrateCode !== 0) {
-      process.exit(migrateCode);
+      process.exit(1);
     }
     console.log("[startup] migrations applied");
   }

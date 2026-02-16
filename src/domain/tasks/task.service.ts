@@ -1,5 +1,5 @@
 import type { Clock } from "../ports/clock.port.js";
-import type { TaskRepo } from "../ports/task.repo.port.js";
+import type { CreateFromDraftResult, TaskDraft, TaskRepo } from "../ports/task.repo.port.js";
 import type { Task, TaskPriority } from "./task.types.js";
 
 export type CreateTaskInput = {
@@ -39,5 +39,30 @@ export class TaskService {
     };
 
     return this.taskRepo.create(task);
+  }
+
+  async createDraft(input: {
+    token: string;
+    sourceChatId: string;
+    sourceMessageId: string;
+    sourceText: string;
+    sourceLink: string | null;
+    creatorUserId: string;
+  }): Promise<TaskDraft> {
+    return this.taskRepo.createDraft(input);
+  }
+
+  async finalizeDraft(
+    token: string,
+    requesterUserId: string
+  ): Promise<CreateFromDraftResult | null> {
+    const draft = await this.taskRepo.findDraftByToken(token);
+    if (!draft || draft.creatorUserId !== requesterUserId) {
+      return null;
+    }
+
+    const result = await this.taskRepo.createFromDraft(draft);
+    await this.taskRepo.markDraftFinal(draft.id, result.task.id);
+    return result;
   }
 }

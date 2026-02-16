@@ -9,6 +9,7 @@ datasource db {
 
 model Task {
   id              String   @id @default(cuid())
+  sourceDraftId   String   @unique
   sourceChatId    String
   sourceMessageId String
   sourceText      String
@@ -20,6 +21,28 @@ model Task {
   status          String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+
+  sourceDraft TaskDraft @relation("TaskSourceDraft", fields: [sourceDraftId], references: [id])
+  createdByDraft TaskDraft[] @relation("TaskDraftCreatedTask")
+
+  @@unique([sourceChatId, sourceMessageId])
+}
+
+model TaskDraft {
+  id              String   @id @default(cuid())
+  token           String   @unique
+  status          String
+  createdTaskId   String?
+  sourceChatId    String
+  sourceMessageId String
+  sourceText      String
+  sourceLink      String?
+  creatorUserId   String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  createdTask Task? @relation("TaskDraftCreatedTask", fields: [createdTaskId], references: [id])
+  task        Task? @relation("TaskSourceDraft")
 }
 
 model PendingDeletion {

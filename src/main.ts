@@ -7,11 +7,7 @@ import { loadEnv } from "./config/env.js";
 
 const env = loadEnv();
 const app = Fastify({ logger: true });
-const bot = createBot(
-  env.telegramBotToken,
-  container.taskService,
-  container.pendingDeletionRepo
-);
+const bot = createBot(env.telegramBotToken, container.taskService);
 
 app.get("/health", async () => ({ ok: true }));
 

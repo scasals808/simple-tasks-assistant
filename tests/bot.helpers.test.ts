@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import { buildSourceLink, extractStartPayload } from "../src/bot/index.js";
-import { getDeadlineFromChoice } from "../src/bot/scenes/createTask.scene.js";
 
 describe("bot helpers", () => {
   it("builds public source link for username chats", () => {
@@ -24,17 +23,4 @@ describe("bot helpers", () => {
     expect(extractStartPayload(undefined)).toBeNull();
   });
 
-  it("maps deadline choices to expected values", () => {
-    const today = getDeadlineFromChoice("today");
-    const tomorrow = getDeadlineFromChoice("tomorrow");
-    const none = getDeadlineFromChoice("none");
-
-    expect(today).not.toBeNull();
-    expect(tomorrow).not.toBeNull();
-    expect(none).toBeNull();
-
-    if (today && tomorrow) {
-      expect(tomorrow.getTime()).toBeGreaterThan(today.getTime());
-    }
-  });
 });
