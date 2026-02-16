@@ -1,0 +1,50 @@
+import type { WorkspaceInviteService } from "../../../domain/workspaces/workspace-invite.service.js";
+
+function tokenShort(token: string): string {
+  return token.slice(0, 8);
+}
+
+function getTelegramError(error: unknown): { code?: number; description?: string } {
+  const err = error as { response?: { error_code?: number; description?: string } };
+  return {
+    code: err.response?.error_code,
+    description: err.response?.description
+  };
+}
+
+function logStartPayloadError(
+  ctx: {
+    update?: { update_id?: number };
+    from?: { id?: number };
+  },
+  token: string,
+  error: unknown
+): void {
+  const info = getTelegramError(error);
+  console.warn("[bot.start_payload_failed]", {
+    update_id: ctx.update?.update_id,
+    handler: "start_join",
+    user_id: ctx.from?.id,
+    token: tokenShort(token),
+    error_code: info.code ?? null,
+    description: info.description ?? String(error)
+  });
+}
+
+export async function handleStartJoin(
+  ctx: {
+    from: { id: number };
+    update?: { update_id?: number };
+    reply(text: string): Promise<unknown>;
+  },
+  workspaceInviteService: WorkspaceInviteService,
+  token: string
+): Promise<void> {
+  try {
+    const accepted = await workspaceInviteService.acceptInvite(token, String(ctx.from.id));
+    await ctx.reply(`Joined team: ${accepted.workspace.title ?? accepted.workspace.id}`);
+  } catch (error: unknown) {
+    logStartPayloadError(ctx, token, error);
+    await ctx.reply("Invite is invalid or expired");
+  }
+}

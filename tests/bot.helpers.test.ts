@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildSourceLink, extractStartPayload } from "../src/bot/index.js";
+import { buildSourceLink, extractStartPayload, parseStartPayload } from "../src/bot/index.js";
 
 describe("bot helpers", () => {
   it("builds public source link for username chats", () => {
@@ -21,6 +21,21 @@ describe("bot helpers", () => {
     expect(extractStartPayload("/start ct_token")).toBe("ct_token");
     expect(extractStartPayload("/start")).toBeNull();
     expect(extractStartPayload(undefined)).toBeNull();
+  });
+
+  it("routes /start payload types", () => {
+    expect(parseStartPayload("join_token123")).toEqual({
+      type: "join",
+      token: "token123"
+    });
+    expect(parseStartPayload("ct_token")).toEqual({
+      type: "task",
+      token: "ct_token"
+    });
+    expect(parseStartPayload(null)).toEqual({
+      type: "none",
+      token: null
+    });
   });
 
 });

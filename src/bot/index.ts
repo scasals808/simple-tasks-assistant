@@ -2,6 +2,15 @@ import { Markup, Telegraf } from "telegraf";
 
 import type { TaskPriority } from "../domain/tasks/task.types.js";
 import type { TaskService } from "../domain/tasks/task.service.js";
+import type { WorkspaceInviteService } from "../domain/workspaces/workspace-invite.service.js";
+import { handleStartJoin } from "./start/handlers/start.join.js";
+import { handleStartPlain } from "./start/handlers/start.plain.js";
+import { handleStartTask } from "./start/handlers/start.task.js";
+import {
+  extractStartPayload,
+  parseStartPayload,
+  selectStartRoute
+} from "./start/start.router.js";
 
 const ASSIGNEES = [
   { id: "ivan", label: "Ivan" },
@@ -117,16 +126,13 @@ export function buildSourceLink(
   return null;
 }
 
-export function extractStartPayload(text: string | undefined): string | null {
-  if (!text) return null;
-  const parts = text.trim().split(/\s+/);
-  return parts.length > 1 ? parts[1] : null;
-}
+export { extractStartPayload, parseStartPayload } from "./start/start.router.js";
 
 export function createBot(
   token: string,
   taskService: TaskService,
-  botUsername: string
+  botUsername: string,
+  workspaceInviteService: WorkspaceInviteService
 ): Telegraf {
   const bot = new Telegraf(token);
 
@@ -136,24 +142,18 @@ export function createBot(
     }
 
     const payload = extractStartPayload((ctx.message as { text?: string }).text);
-    if (payload) {
-      const started = await taskService.startDraftWizard(payload, String(ctx.from.id));
-      if (started.status === "NOT_FOUND") {
-        await ctx.reply("Черновик не найден");
-        return;
-      }
-
-      if (started.status === "ALREADY_EXISTS") {
-        await ctx.reply(`Задача уже существует (id: ${started.task.id})`);
-        return;
-      }
-
-      await ctx.reply("Choose assignee", assigneeKeyboard(payload));
+    const parsed = parseStartPayload(payload);
+    const route = selectStartRoute(parsed);
+    if (route === "join" && parsed.type === "join") {
+      await handleStartJoin(ctx, workspaceInviteService, parsed.token);
       return;
     }
-
-    await ctx.reply(
-      "Привет! Я помогу быстро создавать задачи из сообщений.",
+    if (route === "task" && parsed.type === "task") {
+      await handleStartTask(ctx, taskService, parsed.token, assigneeKeyboard);
+      return;
+    }
+    await handleStartPlain(
+      ctx,
       Markup.keyboard([["📌 Мои задачи", "➕ Создать задачу"], ["ℹ️ Помощь"]]).resize()
     );
   });
