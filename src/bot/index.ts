@@ -1,9 +1,10 @@
 import { Markup, Scenes, Telegraf, session } from "telegraf";
 
 import type { TaskService } from "../domain/tasks/task.service.js";
+import type { PendingDeletionRepoPrisma } from "../infra/db/pendingDeletion.repo.prisma.js";
 import { createTaskWizardScene } from "./scenes/createTask.scene.js";
 import type { BotContext } from "./scenes/createTask.scene.js";
-import { sendEphemeral } from "./utils/ephemeral.js";
+import { processDueDeletions, sendEphemeral } from "./utils/ephemeral.js";
 
 type PendingTaskSource = {
   sourceChatId: string;
@@ -36,7 +37,11 @@ export function extractStartPayload(text: string | undefined): string | null {
   return parts.length > 1 ? parts[1] : null;
 }
 
-export function createBot(token: string, taskService: TaskService): Telegraf<BotContext> {
+export function createBot(
+  token: string,
+  taskService: TaskService,
+  pendingDeletionRepo: PendingDeletionRepoPrisma
+): Telegraf<BotContext> {
   const bot = new Telegraf<BotContext>(token);
   const pendingByToken = new Map<string, PendingTaskSource>();
 
@@ -44,6 +49,10 @@ export function createBot(token: string, taskService: TaskService): Telegraf<Bot
   const stage = new Scenes.Stage<BotContext>([createTaskScene]);
 
   bot.use(session());
+  bot.use(async (ctx, next) => {
+    await processDueDeletions(ctx, pendingDeletionRepo);
+    await next();
+  });
   bot.use(stage.middleware());
 
   bot.start(async (ctx) => {
@@ -87,7 +96,7 @@ export function createBot(token: string, taskService: TaskService): Telegraf<Bot
     };
 
     if (!message.reply_to_message) {
-      await sendEphemeral(ctx, "Reply to a message and send /task");
+      await sendEphemeral(ctx, pendingDeletionRepo, "Reply to a message and send /task");
       return;
     }
 
@@ -114,13 +123,13 @@ export function createBot(token: string, taskService: TaskService): Telegraf<Bot
 
     const me = await bot.telegram.getMe();
     if (!me.username) {
-      await sendEphemeral(ctx, "Не удалось открыть чат");
+      await sendEphemeral(ctx, pendingDeletionRepo, "Не удалось открыть чат");
       return;
     }
 
     const startLink = `https://t.me/${me.username}?start=ct_${tokenForTask}`;
     if (message.chat.type === "group" || message.chat.type === "supergroup") {
-      await sendEphemeral(ctx, `Откройте личный чат: ${startLink}`);
+      await sendEphemeral(ctx, pendingDeletionRepo, `Откройте личный чат: ${startLink}`);
       return;
     }
 

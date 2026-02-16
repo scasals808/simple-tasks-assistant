@@ -4,6 +4,9 @@ type TelegramResponse = {
   result?: unknown;
 };
 
+type ScopeType = "default" | "all_group_chats";
+type Action = "set" | "get" | "delete";
+
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
@@ -14,7 +17,7 @@ function requireEnv(name: string): string {
 
 async function callTelegram(
   token: string,
-  method: "setMyCommands" | "deleteMyCommands",
+  method: "setMyCommands" | "getMyCommands" | "deleteMyCommands",
   body?: URLSearchParams
 ): Promise<TelegramResponse> {
   const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
@@ -33,13 +36,12 @@ async function callTelegram(
   return json;
 }
 
-async function main(): Promise<void> {
-  const action = process.argv[2] as "set" | "delete" | undefined;
-  if (!action || !["set", "delete"].includes(action)) {
-    throw new Error("Usage: tsx scripts/telegram-commands.ts <set|delete>");
-  }
-
-  const token = requireEnv("TELEGRAM_BOT_TOKEN");
+async function applyForScope(
+  token: string,
+  action: Action,
+  scopeType: ScopeType
+): Promise<void> {
+  const scope = JSON.stringify({ type: scopeType });
 
   if (action === "set") {
     await callTelegram(
@@ -49,25 +51,51 @@ async function main(): Promise<void> {
         commands: JSON.stringify([
           {
             command: "task",
-            description: "Create a task from a replied message"
+            description: "Создать задачу из reply"
+          },
+          {
+            command: "help",
+            description: "Помощь"
           }
         ]),
-        scope: JSON.stringify({ type: "default" })
+        scope
       })
     );
+    console.log(`[${scopeType}] setMyCommands: OK`);
+    return;
+  }
 
-    console.log("Telegram commands set successfully");
+  if (action === "get") {
+    const result = await callTelegram(
+      token,
+      "getMyCommands",
+      new URLSearchParams({ scope })
+    );
+    console.log(`[${scopeType}] getMyCommands:`);
+    console.log(JSON.stringify(result.result ?? [], null, 2));
     return;
   }
 
   await callTelegram(
     token,
     "deleteMyCommands",
-    new URLSearchParams({
-      scope: JSON.stringify({ type: "default" })
-    })
+    new URLSearchParams({ scope })
   );
-  console.log("Telegram commands deleted successfully");
+  console.log(`[${scopeType}] deleteMyCommands: OK`);
+}
+
+async function main(): Promise<void> {
+  const action = process.argv[2] as Action | undefined;
+  if (!action || !["set", "get", "delete"].includes(action)) {
+    throw new Error("Usage: tsx scripts/telegram-commands.ts <set|get|delete>");
+  }
+
+  const token = requireEnv("TELEGRAM_BOT_TOKEN");
+  const scopes: ScopeType[] = ["default", "all_group_chats"];
+
+  for (const scope of scopes) {
+    await applyForScope(token, action, scope);
+  }
 }
 
 main().catch((error: unknown) => {

@@ -16,14 +16,24 @@
 
 ## Telegram slash command setup
 
-Set `/task` command for Telegram suggestions:
+Export token:
 
-- `TELEGRAM_BOT_TOKEN=... pnpm tg:commands:set`
+- `export TELEGRAM_BOT_TOKEN=...`
 
-Verify in Telegram:
+Set commands for both default and group chats:
 
-- Open bot chat, type `/` and confirm `/task` appears in suggestions.
+- `pnpm tg:commands:set`
+
+Verify via API:
+
+- `pnpm tg:commands:get`
+- Confirm `task` appears in both scopes (`default`, `all_group_chats`).
+
+Verify in Telegram UI:
+
+- Reopen bot chat and group chat.
+- Type `/` and confirm `/task` appears in suggestions.
 
 Optional cleanup:
 
-- `TELEGRAM_BOT_TOKEN=... pnpm tg:commands:delete`
+- `pnpm tg:commands:delete`

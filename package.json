@@ -14,6 +14,7 @@
     "tg:webhook:render:info": "tsx scripts/telegram-webhook-render.ts info",
     "tg:webhook:render:delete": "tsx scripts/telegram-webhook-render.ts delete",
     "tg:commands:set": "tsx scripts/telegram-commands.ts set",
+    "tg:commands:get": "tsx scripts/telegram-commands.ts get",
     "tg:commands:delete": "tsx scripts/telegram-commands.ts delete",
     "start": "tsx src/main.ts",
     "typecheck": "tsc --noEmit",
