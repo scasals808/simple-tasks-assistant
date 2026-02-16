@@ -31,4 +31,11 @@ export class WorkspaceRepoPrisma implements WorkspaceRepo {
     });
     return mapWorkspace(row);
   }
+
+  async findById(id: string): Promise<Workspace | null> {
+    const row = await prisma.workspace.findUnique({
+      where: { id }
+    });
+    return row ? mapWorkspace(row) : null;
+  }
 }

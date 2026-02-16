@@ -67,6 +67,7 @@ model Workspace {
   tasks   Task[]
   drafts  TaskDraft[]
   members WorkspaceMember[]
+  invites WorkspaceInvite[]
 }
 
 model WorkspaceMember {
@@ -82,6 +83,19 @@ model WorkspaceMember {
   @@unique([workspaceId, userId])
   @@index([userId])
   @@index([workspaceId, role])
+}
+
+model WorkspaceInvite {
+  id          String   @id @default(cuid())
+  token       String   @unique
+  workspaceId String
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+
+  @@index([workspaceId])
+  @@index([expiresAt])
 }
 
 model PendingDeletion {

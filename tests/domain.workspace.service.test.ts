@@ -14,7 +14,8 @@ describe("WorkspaceService.ensureWorkspaceForChat", () => {
       updatedAt: new Date("2026-02-16T00:00:00.000Z")
     };
     const ensureByChatId = vi.fn(async () => expected);
-    const repo: WorkspaceRepo = { ensureByChatId };
+    const findById = vi.fn(async () => expected);
+    const repo: WorkspaceRepo = { ensureByChatId, findById };
     const service = new WorkspaceService(repo);
 
     const result = await service.ensureWorkspaceForChat("chat-1", "Team Chat");

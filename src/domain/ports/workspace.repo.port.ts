@@ -9,4 +9,5 @@ export type Workspace = {
 
 export interface WorkspaceRepo {
   ensureByChatId(chatId: string, title?: string): Promise<Workspace>;
+  findById(id: string): Promise<Workspace | null>;
 }
