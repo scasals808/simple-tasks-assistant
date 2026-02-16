@@ -131,6 +131,9 @@ export function createBot(
         Markup.button.callback("➕ Создать задачу", `create_task:${tokenForTask}`)
       ])
     );
+    console.log(
+      `[ui] group_message_sent chatId=${sent.chat.id} messageId=${sent.message_id}`
+    );
     await scheduleSentMessageDeletion(
       pendingDeletionRepo,
       String(sent.chat.id),
@@ -140,26 +143,53 @@ export function createBot(
   });
 
   bot.action(/^create_task:(.+)$/, async (ctx) => {
+    await ctx.answerCbQuery();
+
+    const callbackMessage = "message" in ctx.callbackQuery ? ctx.callbackQuery.message : undefined;
+    const callbackChat = callbackMessage?.chat;
+    const callbackMessageId = callbackMessage?.message_id;
+    const callbackUserId = ctx.from?.id;
+    console.log(
+      `[ui] create_clicked chatId=${callbackChat?.id ?? "unknown"} messageId=${callbackMessageId ?? "unknown"} userId=${callbackUserId ?? "unknown"}`
+    );
+
+    if (
+      callbackChat &&
+      callbackMessageId &&
+      (callbackChat.type === "group" || callbackChat.type === "supergroup")
+    ) {
+      try {
+        await ctx.telegram.deleteMessage(callbackChat.id, callbackMessageId);
+        console.log(
+          `[ui] group_message_deleted chatId=${callbackChat.id} messageId=${callbackMessageId}`
+        );
+      } catch (error: unknown) {
+        const err = error as { response?: { error_code?: number; description?: string } };
+        console.warn(
+          `[ui] group_message_delete_failed chatId=${callbackChat.id} messageId=${callbackMessageId} code=${err.response?.error_code ?? "unknown"} description=${err.response?.description ?? String(error)}`
+        );
+      }
+    }
+
     const tokenForTask = ctx.match[1];
     const pending = pendingByToken.get(tokenForTask);
 
     if (!pending || !ctx.from || pending.creatorUserId !== String(ctx.from.id)) {
-      await ctx.answerCbQuery("Недоступно", { show_alert: true });
+      await ctx.reply("Недоступно");
       return;
     }
 
     const me = await bot.telegram.getMe();
     if (!me.username) {
-      await ctx.answerCbQuery("Ошибка", { show_alert: true });
+      await ctx.reply("Ошибка");
       return;
     }
 
     const startLink = `https://t.me/${me.username}?start=ct_${tokenForTask}`;
-    await ctx.answerCbQuery();
 
     const sent = await ctx.reply(
       "Откройте бота в личном чате для продолжения",
-      Markup.inlineKeyboard([Markup.button.url("👤 Открыть бота", startLink)])
+      Markup.inlineKeyboard([Markup.button.url("Перейти в бота", startLink)])
     );
     await scheduleSentMessageDeletion(
       pendingDeletionRepo,
