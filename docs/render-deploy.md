@@ -23,7 +23,10 @@ Set these env vars in Render service settings:
 - `NODE_ENV=production`
 - `TELEGRAM_BOT_TOKEN=<your bot token>`
 - `TELEGRAM_WEBHOOK_SECRET_TOKEN=<random secret token>`
+- `BOT_USERNAME=<your bot username without @>`
 - `DATABASE_URL=<Render Postgres connection string>`
+- `ADMIN_USER_IDS=<comma-separated telegram user ids>`
+- `ALLOW_ADMIN_RESET=false` (set `true` only for explicit reset maintenance)
 
 ## 4) Deploy and get service URL
 
@@ -59,9 +62,6 @@ pnpm tg:webhook:render:delete
 - `GET /health` returns HTTP `200`.
 - `POST /telegram/webhook` returns `401` when header `X-Telegram-Bot-Api-Secret-Token` is missing/invalid.
 - `pnpm prisma generate` succeeds without DB access.
-- Run DB migrations during deploy/release manually with:
-  - `pnpm prisma migrate deploy`
-
 Production note:
 
-- `start` runs `pnpm prisma migrate deploy` when `NODE_ENV=production`, then starts the app.
+- `pnpm start` runs `pnpm prisma migrate deploy` automatically when `NODE_ENV=production`, then starts the app.
