@@ -6,3 +6,18 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+model Task {
+  id              String   @id @default(cuid())
+  sourceChatId    String
+  sourceMessageId String
+  sourceText      String
+  sourceLink      String?
+  creatorUserId   String
+  assigneeUserId  String
+  priority        String
+  deadlineAt      DateTime?
+  status          String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}

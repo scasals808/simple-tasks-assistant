@@ -2,11 +2,12 @@ import Fastify from "fastify";
 import type { Update } from "telegraf/types";
 
 import { createBot } from "./bot/index.js";
+import { container } from "./app/container.js";
 import { loadEnv } from "./config/env.js";
 
 const env = loadEnv();
 const app = Fastify({ logger: true });
-const bot = createBot(env.telegramBotToken);
+const bot = createBot(env.telegramBotToken, container.taskService);
 
 app.get("/health", async () => ({ ok: true }));
 

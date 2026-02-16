@@ -1,4 +1,5 @@
 import type { Clock } from "../ports/clock.port.js";
+import type { TaskRepo } from "../ports/task.repo.port.js";
 import type { Task, TaskPriority } from "./task.types.js";
 
 export type CreateTaskInput = {
@@ -14,12 +15,15 @@ export type CreateTaskInput = {
 };
 
 export class TaskService {
-  constructor(private readonly clock: Clock) {}
+  constructor(
+    private readonly clock: Clock,
+    private readonly taskRepo: TaskRepo
+  ) {}
 
-  createTask(input: CreateTaskInput): Task {
+  async createTask(input: CreateTaskInput): Promise<Task> {
     const now = this.clock.now();
 
-    return {
+    const task: Task = {
       id: input.id,
       sourceChatId: input.sourceChatId,
       sourceMessageId: input.sourceMessageId,
@@ -33,5 +37,7 @@ export class TaskService {
       createdAt: now,
       updatedAt: now
     };
+
+    return this.taskRepo.create(task);
   }
 }
