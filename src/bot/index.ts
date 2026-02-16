@@ -12,7 +12,7 @@ type PendingTaskSource = {
   creatorUserId: string;
 };
 
-function buildSourceLink(
+export function buildSourceLink(
   chatId: number,
   chatUsername: string | undefined,
   messageId: number
@@ -29,7 +29,7 @@ function buildSourceLink(
   return null;
 }
 
-function extractStartPayload(text: string | undefined): string | null {
+export function extractStartPayload(text: string | undefined): string | null {
   if (!text) return null;
   const parts = text.trim().split(/\s+/);
   return parts.length > 1 ? parts[1] : null;
@@ -62,7 +62,7 @@ export function createBot(token: string, taskService: TaskService): Telegraf<Bot
     await ctx.reply("OK");
   });
 
-  bot.on("message", async (ctx) => {
+  bot.command("task", async (ctx) => {
     const message = ctx.message as {
       from?: { id?: number };
       chat?: { id?: number; username?: string; type?: string };
@@ -74,11 +74,12 @@ export function createBot(token: string, taskService: TaskService): Telegraf<Bot
       };
     };
 
-    if (!message.reply_to_message || !message.chat || !message.from) {
+    if (!message.reply_to_message) {
+      await ctx.reply("Reply to a message and send /task");
       return;
     }
 
-    if (message.chat.type === "private") {
+    if (!message.chat || !message.from || message.chat.type === "private") {
       return;
     }
 
@@ -99,31 +100,13 @@ export function createBot(token: string, taskService: TaskService): Telegraf<Bot
       creatorUserId: String(message.from.id)
     });
 
-    await ctx.reply(
-      "Создать задачу из ответа?",
-      Markup.inlineKeyboard([
-        Markup.button.callback("➕ Сделать задачей", `create_task:${tokenForTask}`)
-      ])
-    );
-  });
-
-  bot.action(/^create_task:(.+)$/, async (ctx) => {
-    const tokenForTask = ctx.match[1];
-    const pending = pendingByToken.get(tokenForTask);
-
-    if (!pending || !ctx.from || pending.creatorUserId !== String(ctx.from.id)) {
-      await ctx.answerCbQuery("Недоступно", { show_alert: true });
-      return;
-    }
-
     const me = await bot.telegram.getMe();
     if (!me.username) {
-      await ctx.answerCbQuery("Не удалось открыть чат", { show_alert: true });
+      await ctx.reply("Не удалось открыть чат");
       return;
     }
 
     const startLink = `https://t.me/${me.username}?start=ct_${tokenForTask}`;
-    await ctx.answerCbQuery();
     await ctx.reply(
       "Откройте личный чат и продолжите создание задачи",
       Markup.inlineKeyboard([Markup.button.url("Перейти в личный чат", startLink)])

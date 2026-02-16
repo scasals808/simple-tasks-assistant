@@ -30,7 +30,7 @@ const assignees = [
   { id: "sergey", label: "Sergey" }
 ];
 
-function getDeadlineFromChoice(choice: string): Date | null {
+export function getDeadlineFromChoice(choice: string): Date | null {
   const now = new Date();
   if (choice === "today") {
     const date = new Date(now);
@@ -55,6 +55,7 @@ export function createTaskWizardScene(
     async (ctx) => {
       const token = (ctx.scene.state as { token?: string }).token;
       const fromId = String(ctx.from?.id ?? "");
+      console.log("[create-task] enter", { token, fromId });
 
       if (!token || !fromId) {
         await ctx.reply("Не удалось начать создание задачи");
@@ -81,6 +82,7 @@ export function createTaskWizardScene(
       return ctx.wizard.next();
     },
     async (ctx) => {
+      console.log("[create-task] step-assignee");
       if (!ctx.callbackQuery || !("data" in ctx.callbackQuery)) {
         return;
       }
@@ -105,6 +107,7 @@ export function createTaskWizardScene(
       return ctx.wizard.next();
     },
     async (ctx) => {
+      console.log("[create-task] step-priority");
       if (!ctx.callbackQuery || !("data" in ctx.callbackQuery)) {
         return;
       }
@@ -127,6 +130,7 @@ export function createTaskWizardScene(
       return ctx.wizard.next();
     },
     async (ctx) => {
+      console.log("[create-task] step-deadline:before");
       if (!ctx.callbackQuery || !("data" in ctx.callbackQuery)) {
         return;
       }
@@ -149,21 +153,28 @@ export function createTaskWizardScene(
 
       const deadlineChoice = data.replace("wizard_deadline:", "");
       const deadlineAt = getDeadlineFromChoice(deadlineChoice);
+      await ctx.answerCbQuery();
 
-      await taskService.createTask({
-        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-        sourceChatId: pending.sourceChatId,
-        sourceMessageId: pending.sourceMessageId,
-        sourceText: pending.sourceText,
-        sourceLink: pending.sourceLink,
-        creatorUserId: pending.creatorUserId,
-        assigneeUserId: state.assigneeUserId,
-        priority: state.priority,
-        deadlineAt
-      });
+      try {
+        await taskService.createTask({
+          id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          sourceChatId: pending.sourceChatId,
+          sourceMessageId: pending.sourceMessageId,
+          sourceText: pending.sourceText,
+          sourceLink: pending.sourceLink,
+          creatorUserId: pending.creatorUserId,
+          assigneeUserId: state.assigneeUserId,
+          priority: state.priority,
+          deadlineAt
+        });
+      } catch (error: unknown) {
+        console.error("[create-task] step-deadline:error", error);
+        await ctx.reply("Не удалось создать задачу");
+        return ctx.scene.leave();
+      }
 
       pendingByToken.delete(state.token);
-      await ctx.answerCbQuery();
+      console.log("[create-task] step-deadline:after");
       await ctx.reply("Задача создана");
       return ctx.scene.leave();
     }
