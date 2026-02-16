@@ -3,6 +3,7 @@ import { Markup, Scenes, Telegraf, session } from "telegraf";
 import type { TaskService } from "../domain/tasks/task.service.js";
 import { createTaskWizardScene } from "./scenes/createTask.scene.js";
 import type { BotContext } from "./scenes/createTask.scene.js";
+import { sendEphemeral } from "./utils/ephemeral.js";
 
 type PendingTaskSource = {
   sourceChatId: string;
@@ -59,7 +60,18 @@ export function createBot(token: string, taskService: TaskService): Telegraf<Bot
       }
     }
 
-    await ctx.reply("OK");
+    await ctx.reply(
+      "Привет! Я помогу быстро создавать задачи из сообщений.",
+      Markup.keyboard([["📌 Мои задачи", "➕ Создать задачу"], ["ℹ️ Помощь"]]).resize()
+    );
+  });
+
+  bot.hears(["📌 Мои задачи", "➕ Создать задачу", "ℹ️ Помощь"], async (ctx) => {
+    if (ctx.chat.type !== "private") {
+      return;
+    }
+
+    await ctx.reply("Not implemented yet");
   });
 
   bot.command("task", async (ctx) => {
@@ -75,7 +87,7 @@ export function createBot(token: string, taskService: TaskService): Telegraf<Bot
     };
 
     if (!message.reply_to_message) {
-      await ctx.reply("Reply to a message and send /task");
+      await sendEphemeral(ctx, "Reply to a message and send /task");
       return;
     }
 
@@ -102,11 +114,16 @@ export function createBot(token: string, taskService: TaskService): Telegraf<Bot
 
     const me = await bot.telegram.getMe();
     if (!me.username) {
-      await ctx.reply("Не удалось открыть чат");
+      await sendEphemeral(ctx, "Не удалось открыть чат");
       return;
     }
 
     const startLink = `https://t.me/${me.username}?start=ct_${tokenForTask}`;
+    if (message.chat.type === "group" || message.chat.type === "supergroup") {
+      await sendEphemeral(ctx, `Откройте личный чат: ${startLink}`);
+      return;
+    }
+
     await ctx.reply(
       "Откройте личный чат и продолжите создание задачи",
       Markup.inlineKeyboard([Markup.button.url("Перейти в личный чат", startLink)])
