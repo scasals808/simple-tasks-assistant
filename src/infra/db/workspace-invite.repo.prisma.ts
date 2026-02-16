@@ -30,4 +30,19 @@ export class WorkspaceInviteRepoPrisma implements WorkspaceInviteRepo {
     });
     return row ? mapWorkspaceInvite(row) : null;
   }
+
+  async createInvite(
+    workspaceId: string,
+    token: string,
+    expiresAt: Date | null
+  ): Promise<WorkspaceInvite> {
+    const row = await prisma.workspaceInvite.create({
+      data: {
+        workspaceId,
+        token,
+        expiresAt
+      }
+    });
+    return mapWorkspaceInvite(row);
+  }
 }

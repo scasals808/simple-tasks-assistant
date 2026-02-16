@@ -15,7 +15,16 @@ describe("WorkspaceService.ensureWorkspaceForChat", () => {
     };
     const ensureByChatId = vi.fn(async () => expected);
     const findById = vi.fn(async () => expected);
-    const repo: WorkspaceRepo = { ensureByChatId, findById };
+    const createManual = vi.fn(async () => expected);
+    const findLatest = vi.fn(async () => expected);
+    const updateAssigner = vi.fn(async () => expected);
+    const repo: WorkspaceRepo = {
+      ensureByChatId,
+      findById,
+      createManual,
+      findLatest,
+      updateAssigner
+    };
     const service = new WorkspaceService(repo);
 
     const result = await service.ensureWorkspaceForChat("chat-1", "Team Chat");

@@ -11,7 +11,9 @@ const bot = createBot(
   env.telegramBotToken,
   container.taskService,
   env.telegramBotUsername,
-  container.workspaceInviteService
+  container.workspaceInviteService,
+  container.workspaceAdminService,
+  env.adminUserIds
 );
 
 app.get("/health", async () => ({ ok: true }));

@@ -14,5 +14,6 @@ describe("app container", () => {
     expect(container.workspaceMemberService).toBeDefined();
     expect(container.workspaceInviteRepo).toBeDefined();
     expect(container.workspaceInviteService).toBeDefined();
+    expect(container.workspaceAdminService).toBeDefined();
   });
 });

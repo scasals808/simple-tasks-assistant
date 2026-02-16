@@ -3,6 +3,7 @@ type EnvConfig = {
   telegramBotToken: string;
   telegramWebhookSecretToken: string;
   telegramBotUsername: string;
+  adminUserIds: string[];
 };
 
 const rawEnv =
@@ -17,6 +18,18 @@ function parsePort(value: string | undefined): number {
     throw new Error("Invalid PORT value");
   }
   return parsed;
+}
+
+function parseAdminUserIds(value: string | undefined): string[] {
+  if (!value) return [];
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+export function isAdmin(userId: string | number, adminUserIds: string[]): boolean {
+  return adminUserIds.includes(String(userId));
 }
 
 export function loadEnv(): EnvConfig {
@@ -39,6 +52,7 @@ export function loadEnv(): EnvConfig {
     port: parsePort(rawEnv.PORT),
     telegramBotToken,
     telegramWebhookSecretToken,
-    telegramBotUsername
+    telegramBotUsername,
+    adminUserIds: parseAdminUserIds(rawEnv.ADMIN_USER_IDS)
   };
 }

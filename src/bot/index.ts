@@ -3,6 +3,8 @@ import { Markup, Telegraf } from "telegraf";
 import type { TaskPriority } from "../domain/tasks/task.types.js";
 import type { TaskService } from "../domain/tasks/task.service.js";
 import type { WorkspaceInviteService } from "../domain/workspaces/workspace-invite.service.js";
+import type { WorkspaceAdminService } from "../domain/workspaces/workspace-admin.service.js";
+import { isAdmin } from "../config/env.js";
 import { handleStartJoin } from "./start/handlers/start.join.js";
 import { handleStartPlain } from "./start/handlers/start.plain.js";
 import { handleStartTask } from "./start/handlers/start.task.js";
@@ -90,6 +92,14 @@ function confirmKeyboard(token: string) {
   return Markup.inlineKeyboard([[Markup.button.callback("Create", `draft_confirm:${token}`)]]);
 }
 
+function adminMenuKeyboard() {
+  return Markup.inlineKeyboard([
+    [Markup.button.callback("Create team", "admin_create_team")],
+    [Markup.button.callback("Generate invite link", "admin_generate_invite")],
+    [Markup.button.callback("Set assigner", "admin_set_assigner")]
+  ]);
+}
+
 async function updateOrReply(
   ctx: {
     editMessageText(text: string, extra?: { reply_markup?: unknown }): Promise<unknown>;
@@ -132,7 +142,9 @@ export function createBot(
   token: string,
   taskService: TaskService,
   botUsername: string,
-  workspaceInviteService: WorkspaceInviteService
+  workspaceInviteService: WorkspaceInviteService,
+  workspaceAdminService: WorkspaceAdminService,
+  adminUserIds: string[]
 ): Telegraf {
   const bot = new Telegraf(token);
 
@@ -154,7 +166,7 @@ export function createBot(
     }
     await handleStartPlain(
       ctx,
-      Markup.keyboard([["📌 Мои задачи", "➕ Создать задачу"], ["ℹ️ Помощь"]]).resize()
+      Markup.keyboard([["📌 Мои задачи", "➕ Создать задачу"], ["ℹ️ Помощь"], ["Admin"]]).resize()
     );
   });
 
@@ -164,6 +176,28 @@ export function createBot(
     }
 
     await ctx.reply("Not implemented yet");
+  });
+
+  bot.command("admin", async (ctx) => {
+    if (ctx.chat.type !== "private") {
+      return;
+    }
+    if (!isAdmin(String(ctx.from.id), adminUserIds)) {
+      await ctx.reply("Forbidden");
+      return;
+    }
+    await ctx.reply("Admin menu", adminMenuKeyboard());
+  });
+
+  bot.hears(["Admin"], async (ctx) => {
+    if (ctx.chat.type !== "private") {
+      return;
+    }
+    if (!isAdmin(String(ctx.from.id), adminUserIds)) {
+      await ctx.reply("Forbidden");
+      return;
+    }
+    await ctx.reply("Admin menu", adminMenuKeyboard());
   });
 
   bot.command("task", async (ctx) => {
@@ -301,6 +335,45 @@ export function createBot(
           deleteError
         );
       }
+    }
+  });
+
+  bot.action(/^admin_create_team$/, async (ctx) => {
+    await ctx.answerCbQuery();
+    if (!isAdmin(String(ctx.from.id), adminUserIds)) {
+      await ctx.reply("Forbidden");
+      return;
+    }
+    const created = await workspaceAdminService.createWorkspaceManual("Admin Team");
+    await ctx.reply(`Team created: ${created.id}`);
+  });
+
+  bot.action(/^admin_generate_invite$/, async (ctx) => {
+    await ctx.answerCbQuery();
+    if (!isAdmin(String(ctx.from.id), adminUserIds)) {
+      await ctx.reply("Forbidden");
+      return;
+    }
+    try {
+      const invite = await workspaceAdminService.createInviteForLatest(null);
+      await ctx.reply(`Invite link: https://t.me/${botUsername}?start=join_${invite.token}`);
+    } catch {
+      await ctx.reply("No workspace found");
+    }
+  });
+
+  bot.action(/^admin_set_assigner$/, async (ctx) => {
+    await ctx.answerCbQuery();
+    if (!isAdmin(String(ctx.from.id), adminUserIds)) {
+      await ctx.reply("Forbidden");
+      return;
+    }
+    try {
+      const updated = await workspaceAdminService.setAssignerForLatest(String(ctx.from.id), false);
+      await ctx.reply(`Assigner set: ${updated.assignerUserId}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      await ctx.reply(message.includes("already") ? "Assigner already set" : "No workspace found");
     }
   });
 

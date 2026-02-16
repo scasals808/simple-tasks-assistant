@@ -10,4 +10,7 @@ export type Workspace = {
 export interface WorkspaceRepo {
   ensureByChatId(chatId: string, title?: string): Promise<Workspace>;
   findById(id: string): Promise<Workspace | null>;
+  createManual(chatId: string, title?: string): Promise<Workspace>;
+  findLatest(): Promise<Workspace | null>;
+  updateAssigner(workspaceId: string, assignerUserId: string | null): Promise<Workspace>;
 }

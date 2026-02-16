@@ -14,6 +14,7 @@ describe("loadEnv", () => {
       TELEGRAM_BOT_TOKEN: "token",
       TELEGRAM_WEBHOOK_SECRET_TOKEN: "secret",
       BOT_USERNAME: "my_bot",
+      ADMIN_USER_IDS: "1,2",
       PORT: undefined
     };
     const { loadEnv } = await import("../src/config/env.js");
@@ -22,7 +23,8 @@ describe("loadEnv", () => {
       port: 3000,
       telegramBotToken: "token",
       telegramWebhookSecretToken: "secret",
-      telegramBotUsername: "my_bot"
+      telegramBotUsername: "my_bot",
+      adminUserIds: ["1", "2"]
     });
   });
 
@@ -32,11 +34,27 @@ describe("loadEnv", () => {
       TELEGRAM_BOT_TOKEN: "token",
       TELEGRAM_WEBHOOK_SECRET_TOKEN: "secret",
       BOT_USERNAME: "my_bot",
+      ADMIN_USER_IDS: "1,2",
       PORT: "70000"
     };
     const { loadEnv } = await import("../src/config/env.js");
 
     expect(() => loadEnv()).toThrow("Invalid PORT value");
+  });
+
+  it("loads explicit valid port and empty admin list", async () => {
+    process.env = {
+      ...ORIGINAL_ENV,
+      TELEGRAM_BOT_TOKEN: "token",
+      TELEGRAM_WEBHOOK_SECRET_TOKEN: "secret",
+      BOT_USERNAME: "my_bot",
+      ADMIN_USER_IDS: "",
+      PORT: "8080"
+    };
+    const { loadEnv } = await import("../src/config/env.js");
+
+    expect(loadEnv().port).toBe(8080);
+    expect(loadEnv().adminUserIds).toEqual([]);
   });
 
   it("throws when required vars are missing", async () => {
@@ -49,5 +67,36 @@ describe("loadEnv", () => {
     const { loadEnv } = await import("../src/config/env.js");
 
     expect(() => loadEnv()).toThrow("TELEGRAM_BOT_TOKEN is required");
+  });
+
+  it("throws when webhook secret is missing", async () => {
+    process.env = {
+      ...ORIGINAL_ENV,
+      TELEGRAM_BOT_TOKEN: "token",
+      TELEGRAM_WEBHOOK_SECRET_TOKEN: undefined,
+      BOT_USERNAME: "my_bot"
+    };
+    const { loadEnv } = await import("../src/config/env.js");
+
+    expect(() => loadEnv()).toThrow("TELEGRAM_WEBHOOK_SECRET_TOKEN is required");
+  });
+
+  it("throws when bot username is missing", async () => {
+    process.env = {
+      ...ORIGINAL_ENV,
+      TELEGRAM_BOT_TOKEN: "token",
+      TELEGRAM_WEBHOOK_SECRET_TOKEN: "secret",
+      BOT_USERNAME: undefined
+    };
+    const { loadEnv } = await import("../src/config/env.js");
+
+    expect(() => loadEnv()).toThrow("BOT_USERNAME is required");
+  });
+
+  it("checks admin allowlist", async () => {
+    const { isAdmin } = await import("../src/config/env.js");
+    expect(isAdmin("1", ["1", "2"])).toBe(true);
+    expect(isAdmin(2, ["1", "2"])).toBe(true);
+    expect(isAdmin("3", ["1", "2"])).toBe(false);
   });
 });

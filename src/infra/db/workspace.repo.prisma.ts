@@ -38,4 +38,31 @@ export class WorkspaceRepoPrisma implements WorkspaceRepo {
     });
     return row ? mapWorkspace(row) : null;
   }
+
+  async createManual(chatId: string, title?: string): Promise<Workspace> {
+    const row = await prisma.workspace.create({
+      data: {
+        chatId,
+        title: title ?? null
+      }
+    });
+    return mapWorkspace(row);
+  }
+
+  async findLatest(): Promise<Workspace | null> {
+    const row = await prisma.workspace.findFirst({
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+    return row ? mapWorkspace(row) : null;
+  }
+
+  async updateAssigner(workspaceId: string, assignerUserId: string | null): Promise<Workspace> {
+    const row = await prisma.workspace.update({
+      where: { id: workspaceId },
+      data: { assignerUserId }
+    });
+    return mapWorkspace(row);
+  }
 }

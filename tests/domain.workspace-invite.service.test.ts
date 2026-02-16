@@ -23,11 +23,17 @@ describe("WorkspaceInviteService.acceptInvite", () => {
   it("throws error on invalid token", async () => {
     const now = new Date("2026-02-16T00:00:00.000Z");
     const workspaceInviteRepo: WorkspaceInviteRepo = {
-      findValidByToken: vi.fn(async () => null)
+      findValidByToken: vi.fn(async () => null),
+      createInvite: vi.fn(async () => {
+        throw new Error("unused");
+      })
     };
     const workspaceRepo: WorkspaceRepo = {
       ensureByChatId: vi.fn(async () => makeWorkspace()),
-      findById: vi.fn(async () => makeWorkspace())
+      findById: vi.fn(async () => makeWorkspace()),
+      createManual: vi.fn(async () => makeWorkspace()),
+      findLatest: vi.fn(async () => makeWorkspace()),
+      updateAssigner: vi.fn(async () => makeWorkspace())
     };
     const workspaceMemberRepo: WorkspaceMemberRepo = {
       upsertMember: vi.fn(async () => ({
@@ -52,11 +58,17 @@ describe("WorkspaceInviteService.acceptInvite", () => {
   it("throws error on expired token", async () => {
     const now = new Date("2026-02-16T00:00:00.000Z");
     const workspaceInviteRepo: WorkspaceInviteRepo = {
-      findValidByToken: vi.fn(async () => null)
+      findValidByToken: vi.fn(async () => null),
+      createInvite: vi.fn(async () => {
+        throw new Error("unused");
+      })
     };
     const workspaceRepo: WorkspaceRepo = {
       ensureByChatId: vi.fn(async () => makeWorkspace()),
-      findById: vi.fn(async () => makeWorkspace())
+      findById: vi.fn(async () => makeWorkspace()),
+      createManual: vi.fn(async () => makeWorkspace()),
+      findLatest: vi.fn(async () => makeWorkspace()),
+      updateAssigner: vi.fn(async () => makeWorkspace())
     };
     const workspaceMemberRepo: WorkspaceMemberRepo = {
       upsertMember: vi.fn(async () => ({
@@ -89,11 +101,21 @@ describe("WorkspaceInviteService.acceptInvite", () => {
         workspaceId: "ws-1",
         expiresAt: null,
         createdAt: now
+      })),
+      createInvite: vi.fn(async () => ({
+        id: "wi-1",
+        token: "valid-token",
+        workspaceId: "ws-1",
+        expiresAt: null,
+        createdAt: now
       }))
     };
     const workspaceRepo: WorkspaceRepo = {
       ensureByChatId: vi.fn(async () => makeWorkspace()),
-      findById: vi.fn(async () => makeWorkspace())
+      findById: vi.fn(async () => makeWorkspace()),
+      createManual: vi.fn(async () => makeWorkspace()),
+      findLatest: vi.fn(async () => makeWorkspace()),
+      updateAssigner: vi.fn(async () => makeWorkspace())
     };
     const upsertMember = vi.fn(async () => ({
       id: "wm-1",
@@ -132,11 +154,21 @@ describe("WorkspaceInviteService.acceptInvite", () => {
         workspaceId: "ws-1",
         expiresAt: null,
         createdAt: now
+      })),
+      createInvite: vi.fn(async (_workspaceId, token, _expiresAt) => ({
+        id: "wi-1",
+        token,
+        workspaceId: "ws-1",
+        expiresAt: null,
+        createdAt: firstSeen
       }))
     };
     const workspaceRepo: WorkspaceRepo = {
       ensureByChatId: vi.fn(async () => makeWorkspace()),
-      findById: vi.fn(async () => makeWorkspace())
+      findById: vi.fn(async () => makeWorkspace()),
+      createManual: vi.fn(async () => makeWorkspace()),
+      findLatest: vi.fn(async () => makeWorkspace()),
+      updateAssigner: vi.fn(async () => makeWorkspace())
     };
     const upsertMember = vi
       .fn()

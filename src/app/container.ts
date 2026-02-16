@@ -7,6 +7,7 @@ import { WorkspaceMemberService } from "../domain/workspaces/workspace-member.se
 import { WorkspaceMemberRepoPrisma } from "../infra/db/workspace-member.repo.prisma.js";
 import { WorkspaceInviteRepoPrisma } from "../infra/db/workspace-invite.repo.prisma.js";
 import { WorkspaceInviteService } from "../domain/workspaces/workspace-invite.service.js";
+import { WorkspaceAdminService } from "../domain/workspaces/workspace-admin.service.js";
 
 const clock: Clock = {
   now: () => new Date()
@@ -25,9 +26,14 @@ const workspaceInviteService = new WorkspaceInviteService(
   workspaceRepo,
   workspaceMemberRepo
 );
+const workspaceAdminService = new WorkspaceAdminService(
+  workspaceRepo,
+  workspaceInviteRepo
+);
 
 export const container = {
   clock,
+  workspaceAdminService,
   workspaceInviteRepo,
   workspaceInviteService,
   workspaceMemberRepo,

@@ -8,4 +8,5 @@ export type WorkspaceInvite = {
 
 export interface WorkspaceInviteRepo {
   findValidByToken(token: string, now: Date): Promise<WorkspaceInvite | null>;
+  createInvite(workspaceId: string, token: string, expiresAt: Date | null): Promise<WorkspaceInvite>;
 }
