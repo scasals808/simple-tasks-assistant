@@ -10,6 +10,9 @@
     "tg:webhook:set": "tsx scripts/telegram-webhook.ts set",
     "tg:webhook:info": "tsx scripts/telegram-webhook.ts info",
     "tg:webhook:delete": "tsx scripts/telegram-webhook.ts delete",
+    "tg:webhook:render:set": "tsx scripts/telegram-webhook-render.ts set",
+    "tg:webhook:render:info": "tsx scripts/telegram-webhook-render.ts info",
+    "tg:webhook:render:delete": "tsx scripts/telegram-webhook-render.ts delete",
     "start": "tsx src/main.ts",
     "typecheck": "tsc --noEmit",
     "test": "echo \"No tests yet\""
