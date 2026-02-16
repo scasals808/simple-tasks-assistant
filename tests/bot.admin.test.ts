@@ -214,7 +214,46 @@ describe("bot admin handlers", () => {
 
     expect(ensureWorkspaceForChatWithResult).toHaveBeenCalledWith("-100123", "Alpha Team");
     expect(reply).toHaveBeenCalledWith(
-      "Team created/exists: ws-1 | chatId=-100123 | title=Alpha Team"
+      "Team created/exists: workspaceId=ws-1 | chatId=-100123 | title=Alpha Team"
+    );
+  });
+
+  it("rejects positive chatId in /admin_create_team", async () => {
+    const reply = vi.fn(async () => undefined);
+    const ensureWorkspaceForChatWithResult = vi.fn(async () => ({
+      workspace: { id: "ws-1", chatId: "-100123", title: "Alpha Team" },
+      result: "created" as const
+    }));
+    const taskService = {} as never;
+    const workspaceInviteService = {} as never;
+    const workspaceService = {
+      ensureWorkspaceForChatWithResult,
+      ensureWorkspaceForChat: vi.fn()
+    } as never;
+    const workspaceAdminService = {} as never;
+    const bot = createBot(
+      "token",
+      taskService,
+      "my_bot",
+      workspaceService,
+      workspaceInviteService,
+      workspaceAdminService,
+      new Set(["1"]),
+      false
+    ) as unknown as MockBot;
+
+    const handler = bot.commandHandlers.get("admin_create_team");
+    expect(handler).toBeDefined();
+    await handler?.({
+      chat: { type: "private" },
+      from: { id: 1 },
+      message: { text: "/admin_create_team 1003812536253 Alpha Team" },
+      reply
+    });
+
+    expect(ensureWorkspaceForChatWithResult).not.toHaveBeenCalled();
+    expect(reply).toHaveBeenCalledWith(
+      "Invalid chatId. For groups use negative chatId (usually -100...). Get it via /debug_chat_id in the group."
     );
   });
 

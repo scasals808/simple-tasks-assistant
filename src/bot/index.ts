@@ -178,6 +178,19 @@ function logAdminCreateTeam(input: {
   console.log("[bot.admin_create_team]", payload);
 }
 
+function logAdminCreateTeamReject(input: {
+  adminUserId?: number;
+  chatIdInput?: string | null;
+  rejectReason: "chatId_must_be_negative";
+}): void {
+  console.warn("[bot.admin_create_team]", {
+    handler: "admin_create_team",
+    admin_user_id: input.adminUserId ?? null,
+    chatId_input: input.chatIdInput ?? null,
+    reject_reason: input.rejectReason
+  });
+}
+
 function logMenuRender(input: {
   userId?: number;
   isAdminUser: boolean;
@@ -317,6 +330,17 @@ export function createBot(
       await ctx.reply("Send: /admin_create_team <chatId> [title...]");
       return;
     }
+    if (!chatId.startsWith("-")) {
+      logAdminCreateTeamReject({
+        adminUserId: ctx.from.id,
+        chatIdInput: chatId,
+        rejectReason: "chatId_must_be_negative"
+      });
+      await ctx.reply(
+        "Invalid chatId. For groups use negative chatId (usually -100...). Get it via /debug_chat_id in the group."
+      );
+      return;
+    }
     try {
       const result = await workspaceService.ensureWorkspaceForChatWithResult(chatId, title);
       logAdminCreateTeam({
@@ -327,7 +351,7 @@ export function createBot(
         workspaceId: result.workspace.id
       });
       await ctx.reply(
-        `Team created/exists: ${result.workspace.id} | chatId=${chatId} | title=${result.workspace.title ?? ""}`
+        `Team created/exists: workspaceId=${result.workspace.id} | chatId=${chatId} | title=${result.workspace.title ?? ""}`
       );
     } catch {
       logAdminCreateTeam({
