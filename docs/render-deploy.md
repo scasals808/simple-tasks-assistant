@@ -12,7 +12,7 @@ This service is webhook-only (no polling, no workers). On Render Free, cold star
 1. Connect this GitHub repository in Render.
 2. Create a **Web Service** using:
    - Build command: `pnpm install --frozen-lockfile && pnpm prisma generate`
-   - Start command: `pnpm start`
+   - Start command: `pnpm start:render`
    - Health check path: `/health`
 3. Confirm service listens on `PORT` (Render injects it automatically).
 
@@ -61,3 +61,7 @@ pnpm tg:webhook:render:delete
 - `pnpm prisma generate` succeeds without DB access.
 - Run DB migrations during deploy/release manually with:
   - `pnpm prisma migrate deploy`
+
+Production note:
+
+- `start:render` runs `pnpm prisma migrate deploy` before starting the app.

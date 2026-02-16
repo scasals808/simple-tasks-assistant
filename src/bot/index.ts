@@ -4,7 +4,11 @@ import type { TaskService } from "../domain/tasks/task.service.js";
 import type { PendingDeletionRepoPrisma } from "../infra/db/pendingDeletion.repo.prisma.js";
 import { createTaskWizardScene } from "./scenes/createTask.scene.js";
 import type { BotContext } from "./scenes/createTask.scene.js";
-import { processDueDeletions, sendEphemeral } from "./utils/ephemeral.js";
+import {
+  processDueDeletions,
+  scheduleSentMessageDeletion,
+  sendEphemeral
+} from "./utils/ephemeral.js";
 
 type PendingTaskSource = {
   sourceChatId: string;
@@ -121,21 +125,47 @@ export function createBot(
       creatorUserId: String(message.from.id)
     });
 
+    const sent = await ctx.reply(
+      "Создать задачу из этого сообщения?",
+      Markup.inlineKeyboard([
+        Markup.button.callback("➕ Создать задачу", `create_task:${tokenForTask}`)
+      ])
+    );
+    await scheduleSentMessageDeletion(
+      pendingDeletionRepo,
+      String(sent.chat.id),
+      String(sent.message_id),
+      30_000
+    );
+  });
+
+  bot.action(/^create_task:(.+)$/, async (ctx) => {
+    const tokenForTask = ctx.match[1];
+    const pending = pendingByToken.get(tokenForTask);
+
+    if (!pending || !ctx.from || pending.creatorUserId !== String(ctx.from.id)) {
+      await ctx.answerCbQuery("Недоступно", { show_alert: true });
+      return;
+    }
+
     const me = await bot.telegram.getMe();
     if (!me.username) {
-      await sendEphemeral(ctx, pendingDeletionRepo, "Не удалось открыть чат");
+      await ctx.answerCbQuery("Ошибка", { show_alert: true });
       return;
     }
 
     const startLink = `https://t.me/${me.username}?start=ct_${tokenForTask}`;
-    if (message.chat.type === "group" || message.chat.type === "supergroup") {
-      await sendEphemeral(ctx, pendingDeletionRepo, `Откройте личный чат: ${startLink}`);
-      return;
-    }
+    await ctx.answerCbQuery();
 
-    await ctx.reply(
-      "Откройте личный чат и продолжите создание задачи",
-      Markup.inlineKeyboard([Markup.button.url("Перейти в личный чат", startLink)])
+    const sent = await ctx.reply(
+      "Откройте бота в личном чате для продолжения",
+      Markup.inlineKeyboard([Markup.button.url("👤 Открыть бота", startLink)])
+    );
+    await scheduleSentMessageDeletion(
+      pendingDeletionRepo,
+      String(sent.chat.id),
+      String(sent.message_id),
+      30_000
     );
   });
 

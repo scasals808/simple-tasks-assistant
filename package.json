@@ -7,6 +7,7 @@
     "db:down": "docker compose down",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
+    "prisma:migrate:deploy": "prisma migrate deploy",
     "tg:webhook:set": "tsx scripts/telegram-webhook.ts set",
     "tg:webhook:info": "tsx scripts/telegram-webhook.ts info",
     "tg:webhook:delete": "tsx scripts/telegram-webhook.ts delete",
@@ -17,6 +18,7 @@
     "tg:commands:get": "tsx scripts/telegram-commands.ts get",
     "tg:commands:delete": "tsx scripts/telegram-commands.ts delete",
     "start": "tsx src/main.ts",
+    "start:render": "pnpm prisma:migrate:deploy && pnpm start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

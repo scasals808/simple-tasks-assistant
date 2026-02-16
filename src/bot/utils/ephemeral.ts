@@ -1,6 +1,49 @@
 import type { Context } from "telegraf";
 import type { PendingDeletionRepoPrisma } from "../../infra/db/pendingDeletion.repo.prisma.js";
 
+let deletionPersistenceDisabled = false;
+let missingTableLogged = false;
+
+function isMissingTableError(error: unknown): boolean {
+  return Boolean(
+    error &&
+      typeof error === "object" &&
+      "code" in error &&
+      (error as { code?: unknown }).code === "P2021"
+  );
+}
+
+async function scheduleDeletion(
+  pendingDeletionRepo: PendingDeletionRepoPrisma,
+  chatId: string,
+  messageId: string,
+  ttlMs: number
+): Promise<void> {
+  if (deletionPersistenceDisabled) {
+    return;
+  }
+
+  try {
+    await pendingDeletionRepo.schedule(
+      chatId,
+      messageId,
+      new Date(Date.now() + ttlMs)
+    );
+  } catch (error: unknown) {
+    if (isMissingTableError(error)) {
+      deletionPersistenceDisabled = true;
+      if (!missingTableLogged) {
+        missingTableLogged = true;
+        console.warn("[pending-deletion-disabled-missing-table]");
+      }
+      return;
+    }
+    console.warn("[pending-deletion-schedule-error]", {
+      message: error instanceof Error ? error.message : String(error)
+    });
+  }
+}
+
 export async function sendEphemeral(
   ctx: Context,
   pendingDeletionRepo: PendingDeletionRepoPrisma,
@@ -13,13 +56,21 @@ export async function sendEphemeral(
   }
 
   const sent = await ctx.reply(text);
-  const deleteAfterAt = new Date(Date.now() + ttlMs);
-
-  await pendingDeletionRepo.schedule(
+  await scheduleDeletion(
+    pendingDeletionRepo,
     String(sent.chat.id),
     String(sent.message_id),
-    deleteAfterAt
+    ttlMs
   );
+}
+
+export async function scheduleSentMessageDeletion(
+  pendingDeletionRepo: PendingDeletionRepoPrisma,
+  chatId: string,
+  messageId: string,
+  ttlMs = 30_000
+): Promise<void> {
+  await scheduleDeletion(pendingDeletionRepo, chatId, messageId, ttlMs);
 }
 
 export async function processDueDeletions(
@@ -27,6 +78,10 @@ export async function processDueDeletions(
   pendingDeletionRepo: PendingDeletionRepoPrisma,
   limit = 20
 ): Promise<void> {
+  if (deletionPersistenceDisabled) {
+    return;
+  }
+
   try {
     const due = await pendingDeletionRepo.findDue(new Date(), limit);
     for (const item of due) {
@@ -46,6 +101,15 @@ export async function processDueDeletions(
       }
     }
   } catch (error: unknown) {
+    if (isMissingTableError(error)) {
+      deletionPersistenceDisabled = true;
+      if (!missingTableLogged) {
+        missingTableLogged = true;
+        console.warn("[pending-deletion-disabled-missing-table]");
+      }
+      return;
+    }
+
     console.warn("[pending-deletion-process-error]", {
       message: error instanceof Error ? error.message : String(error)
     });
