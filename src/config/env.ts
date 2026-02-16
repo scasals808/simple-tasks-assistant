@@ -4,6 +4,7 @@ type EnvConfig = {
   telegramWebhookSecretToken: string;
   telegramBotUsername: string;
   adminUserIds: string[];
+  allowAdminReset: boolean;
 };
 
 const rawEnv =
@@ -26,6 +27,10 @@ function parseAdminUserIds(value: string | undefined): string[] {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function parseAllowAdminReset(value: string | undefined): boolean {
+  return value === "true";
 }
 
 export function isAdmin(userId: string | number, adminUserIds: string[]): boolean {
@@ -53,6 +58,7 @@ export function loadEnv(): EnvConfig {
     telegramBotToken,
     telegramWebhookSecretToken,
     telegramBotUsername,
-    adminUserIds: parseAdminUserIds(rawEnv.ADMIN_USER_IDS)
+    adminUserIds: parseAdminUserIds(rawEnv.ADMIN_USER_IDS),
+    allowAdminReset: parseAllowAdminReset(rawEnv.ALLOW_ADMIN_RESET)
   };
 }

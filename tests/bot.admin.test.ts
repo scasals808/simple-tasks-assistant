@@ -66,7 +66,14 @@ describe("bot admin handlers", () => {
     const workspaceAdminService = {
       createWorkspaceManual: vi.fn(async () => ({ id: "ws-1", title: "T" })),
       createInviteForLatest: vi.fn(async () => ({ token: "tok", workspaceId: "ws-1" })),
-      setAssignerForLatest: vi.fn(async () => ({ id: "ws-1", assignerUserId: "1" }))
+      setAssignerForLatest: vi.fn(async () => ({ id: "ws-1", assignerUserId: "1" })),
+      setAssigner: vi.fn(async () => ({ id: "ws-1", assignerUserId: "1" })),
+      getLatestWorkspaceId: vi.fn(async () => "ws-1"),
+      resetAllWorkspaceData: vi.fn(async () => ({
+        workspaceMembers: 0,
+        workspaceInvites: 0,
+        workspaces: 0
+      }))
     } as never;
 
     const bot = createBot(
@@ -75,7 +82,8 @@ describe("bot admin handlers", () => {
       "my_bot",
       workspaceInviteService,
       workspaceAdminService,
-      ["1"]
+      ["1"],
+      false
     ) as unknown as MockBot;
 
     const handler = bot.commandHandlers.get("admin");
@@ -97,7 +105,14 @@ describe("bot admin handlers", () => {
     const workspaceAdminService = {
       createWorkspaceManual: vi.fn(async () => ({ id: "ws-1", title: "T" })),
       createInviteForLatest: vi.fn(async () => ({ token: "tok123", workspaceId: "ws-1" })),
-      setAssignerForLatest: vi.fn(async () => ({ id: "ws-1", assignerUserId: "1" }))
+      setAssignerForLatest: vi.fn(async () => ({ id: "ws-1", assignerUserId: "1" })),
+      setAssigner: vi.fn(async () => ({ id: "ws-1", assignerUserId: "1" })),
+      getLatestWorkspaceId: vi.fn(async () => "ws-1"),
+      resetAllWorkspaceData: vi.fn(async () => ({
+        workspaceMembers: 0,
+        workspaceInvites: 0,
+        workspaces: 0
+      }))
     } as never;
     const bot = createBot(
       "token",
@@ -105,7 +120,8 @@ describe("bot admin handlers", () => {
       "my_bot",
       workspaceInviteService,
       workspaceAdminService,
-      ["1"]
+      ["1"],
+      false
     ) as unknown as MockBot;
 
     const action = bot.actionHandlers.find((item) => item.pattern.test("admin_generate_invite"));
@@ -118,5 +134,165 @@ describe("bot admin handlers", () => {
 
     expect(answerCbQuery).toHaveBeenCalledTimes(1);
     expect(reply).toHaveBeenCalledWith("Invite link: https://t.me/my_bot?start=join_tok123");
+  });
+
+  it("parses /admin_set_assigner command and calls domain with explicit ids", async () => {
+    const reply = vi.fn(async () => undefined);
+    const setAssigner = vi.fn(async () => ({ id: "ws-1", assignerUserId: "42" }));
+    const taskService = {} as never;
+    const workspaceInviteService = {} as never;
+    const workspaceAdminService = {
+      createWorkspaceManual: vi.fn(async () => ({ id: "ws-1", title: "T" })),
+      createInviteForLatest: vi.fn(async () => ({ token: "tok123", workspaceId: "ws-1" })),
+      setAssignerForLatest: vi.fn(async () => ({ id: "ws-1", assignerUserId: "1" })),
+      setAssigner,
+      getLatestWorkspaceId: vi.fn(async () => "ws-1"),
+      resetAllWorkspaceData: vi.fn(async () => ({
+        workspaceMembers: 0,
+        workspaceInvites: 0,
+        workspaces: 0
+      }))
+    } as never;
+    const bot = createBot(
+      "token",
+      taskService,
+      "my_bot",
+      workspaceInviteService,
+      workspaceAdminService,
+      ["1"],
+      false
+    ) as unknown as MockBot;
+
+    const handler = bot.commandHandlers.get("admin_set_assigner");
+    expect(handler).toBeDefined();
+    await handler?.({
+      chat: { type: "private" },
+      from: { id: 1 },
+      message: { text: "/admin_set_assigner ws-1 42" },
+      reply
+    });
+
+    expect(setAssigner).toHaveBeenCalledWith("ws-1", "42", false);
+    expect(reply).toHaveBeenCalledWith("Assigner set: 42");
+  });
+
+  it("admin_reset returns forbidden for non-admin", async () => {
+    const reply = vi.fn(async () => undefined);
+    const taskService = {} as never;
+    const workspaceInviteService = {} as never;
+    const workspaceAdminService = {
+      resetAllWorkspaceData: vi.fn(async () => ({
+        workspaceMembers: 1,
+        workspaceInvites: 2,
+        workspaces: 3
+      }))
+    } as never;
+    const bot = createBot(
+      "token",
+      taskService,
+      "my_bot",
+      workspaceInviteService,
+      workspaceAdminService,
+      ["1"],
+      true
+    ) as unknown as MockBot;
+    const handler = bot.commandHandlers.get("admin_reset");
+    await handler?.({
+      chat: { type: "private", id: 10 },
+      from: { id: 2 },
+      message: { text: "/admin_reset CONFIRM_DELETE_ALL_TEST_DATA" },
+      reply
+    });
+    expect(reply).toHaveBeenCalledWith("forbidden");
+  });
+
+  it("admin_reset returns disabled when ALLOW_ADMIN_RESET is false", async () => {
+    const reply = vi.fn(async () => undefined);
+    const resetAllWorkspaceData = vi.fn(async () => ({
+      workspaceMembers: 1,
+      workspaceInvites: 2,
+      workspaces: 3
+    }));
+    const taskService = {} as never;
+    const workspaceInviteService = {} as never;
+    const workspaceAdminService = { resetAllWorkspaceData } as never;
+    const bot = createBot(
+      "token",
+      taskService,
+      "my_bot",
+      workspaceInviteService,
+      workspaceAdminService,
+      ["1"],
+      false
+    ) as unknown as MockBot;
+    const handler = bot.commandHandlers.get("admin_reset");
+    await handler?.({
+      chat: { type: "private", id: 10 },
+      from: { id: 1 },
+      message: { text: "/admin_reset CONFIRM_DELETE_ALL_TEST_DATA" },
+      reply
+    });
+    expect(reply).toHaveBeenCalledWith("reset disabled");
+    expect(resetAllWorkspaceData).not.toHaveBeenCalled();
+  });
+
+  it("admin_reset requires exact confirmation phrase", async () => {
+    const reply = vi.fn(async () => undefined);
+    const resetAllWorkspaceData = vi.fn(async () => ({
+      workspaceMembers: 1,
+      workspaceInvites: 2,
+      workspaces: 3
+    }));
+    const taskService = {} as never;
+    const workspaceInviteService = {} as never;
+    const workspaceAdminService = { resetAllWorkspaceData } as never;
+    const bot = createBot(
+      "token",
+      taskService,
+      "my_bot",
+      workspaceInviteService,
+      workspaceAdminService,
+      ["1"],
+      true
+    ) as unknown as MockBot;
+    const handler = bot.commandHandlers.get("admin_reset");
+    await handler?.({
+      chat: { type: "private", id: 10 },
+      from: { id: 1 },
+      message: { text: "/admin_reset WRONG" },
+      reply
+    });
+    expect(reply).toHaveBeenCalledWith("Send: /admin_reset CONFIRM_DELETE_ALL_TEST_DATA");
+    expect(resetAllWorkspaceData).not.toHaveBeenCalled();
+  });
+
+  it("admin_reset is DM-only", async () => {
+    const reply = vi.fn(async () => undefined);
+    const taskService = {} as never;
+    const workspaceInviteService = {} as never;
+    const workspaceAdminService = {
+      resetAllWorkspaceData: vi.fn(async () => ({
+        workspaceMembers: 1,
+        workspaceInvites: 2,
+        workspaces: 3
+      }))
+    } as never;
+    const bot = createBot(
+      "token",
+      taskService,
+      "my_bot",
+      workspaceInviteService,
+      workspaceAdminService,
+      ["1"],
+      true
+    ) as unknown as MockBot;
+    const handler = bot.commandHandlers.get("admin_reset");
+    await handler?.({
+      chat: { type: "group", id: -100 },
+      from: { id: 1 },
+      message: { text: "/admin_reset CONFIRM_DELETE_ALL_TEST_DATA" },
+      reply
+    });
+    expect(reply).toHaveBeenCalledWith("DM only");
   });
 });

@@ -100,6 +100,59 @@ function adminMenuKeyboard() {
   ]);
 }
 
+function logAdminAction(input: {
+  handler: string;
+  adminUserId?: number;
+  workspaceId?: string | null;
+  targetUserId?: string | null;
+  result: "OK" | "ERROR";
+  errorCode?: string | null;
+}): void {
+  const payload = {
+    handler: input.handler,
+    admin_user_id: input.adminUserId ?? null,
+    workspaceId: input.workspaceId ?? null,
+    target_userId: input.targetUserId ?? null,
+    result: input.result,
+    error_code: input.errorCode ?? null
+  };
+  if (input.result === "ERROR") {
+    console.warn("[bot.admin_action]", payload);
+    return;
+  }
+  console.log("[bot.admin_action]", payload);
+}
+
+function logAdminReset(input: {
+  adminUserId?: number;
+  chatId?: number;
+  enabled: boolean;
+  confirmed: boolean;
+  deletedCounts?: {
+    workspaceMembers: number;
+    workspaceInvites: number;
+    workspaces: number;
+  } | null;
+  errorCode?: string | null;
+  errorDescription?: string | null;
+}): void {
+  const payload = {
+    handler: "admin_reset",
+    admin_user_id: input.adminUserId ?? null,
+    chat_id: input.chatId ?? null,
+    enabled: input.enabled,
+    confirmed: input.confirmed,
+    deleted_counts: input.deletedCounts ?? null,
+    error_code: input.errorCode ?? null,
+    description: input.errorDescription ?? null
+  };
+  if (input.errorCode) {
+    console.warn("[bot.admin_reset]", payload);
+    return;
+  }
+  console.log("[bot.admin_reset]", payload);
+}
+
 async function updateOrReply(
   ctx: {
     editMessageText(text: string, extra?: { reply_markup?: unknown }): Promise<unknown>;
@@ -144,7 +197,8 @@ export function createBot(
   botUsername: string,
   workspaceInviteService: WorkspaceInviteService,
   workspaceAdminService: WorkspaceAdminService,
-  adminUserIds: string[]
+  adminUserIds: string[],
+  allowAdminReset: boolean
 ): Telegraf {
   const bot = new Telegraf(token);
 
@@ -187,6 +241,153 @@ export function createBot(
       return;
     }
     await ctx.reply("Admin menu", adminMenuKeyboard());
+  });
+
+  bot.command("admin_set_assigner", async (ctx) => {
+    if (ctx.chat.type !== "private") {
+      return;
+    }
+    if (!isAdmin(String(ctx.from.id), adminUserIds)) {
+      await ctx.reply("Forbidden");
+      return;
+    }
+    const text = (ctx.message as { text?: string }).text ?? "";
+    const parts = text.trim().split(/\s+/);
+    const workspaceId = parts[1];
+    const userId = parts[2];
+    if (!workspaceId || !userId) {
+      await ctx.reply("Send: /admin_set_assigner <workspaceId> <userId>");
+      return;
+    }
+    try {
+      const result = await workspaceAdminService.setAssigner(workspaceId, userId, false);
+      logAdminAction({
+        handler: "admin_set_assigner",
+        adminUserId: ctx.from.id,
+        workspaceId,
+        targetUserId: userId,
+        result: "OK"
+      });
+      await ctx.reply(`Assigner set: ${result.assignerUserId}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      logAdminAction({
+        handler: "admin_set_assigner",
+        adminUserId: ctx.from.id,
+        workspaceId,
+        targetUserId: userId,
+        result: "ERROR",
+        errorCode: message.includes("already")
+          ? "ASSIGNER_ALREADY_SET"
+          : message.includes("not found")
+            ? "WORKSPACE_NOT_FOUND"
+            : "UNKNOWN"
+      });
+      await ctx.reply(message.includes("already") ? "Assigner already set" : "No workspace found");
+    }
+  });
+
+  bot.command("admin_replace_assigner", async (ctx) => {
+    if (ctx.chat.type !== "private") {
+      return;
+    }
+    if (!isAdmin(String(ctx.from.id), adminUserIds)) {
+      await ctx.reply("Forbidden");
+      return;
+    }
+    const text = (ctx.message as { text?: string }).text ?? "";
+    const parts = text.trim().split(/\s+/);
+    const workspaceId = parts[1];
+    const userId = parts[2];
+    if (!workspaceId || !userId) {
+      await ctx.reply("Send: /admin_replace_assigner <workspaceId> <userId>");
+      return;
+    }
+    try {
+      const result = await workspaceAdminService.setAssigner(workspaceId, userId, true);
+      logAdminAction({
+        handler: "admin_replace_assigner",
+        adminUserId: ctx.from.id,
+        workspaceId,
+        targetUserId: userId,
+        result: "OK"
+      });
+      await ctx.reply(`Assigner set: ${result.assignerUserId}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      logAdminAction({
+        handler: "admin_replace_assigner",
+        adminUserId: ctx.from.id,
+        workspaceId,
+        targetUserId: userId,
+        result: "ERROR",
+        errorCode: message.includes("not found") ? "WORKSPACE_NOT_FOUND" : "UNKNOWN"
+      });
+      await ctx.reply("No workspace found");
+    }
+  });
+
+  bot.command("admin_reset", async (ctx) => {
+    const phrase = "CONFIRM_DELETE_ALL_TEST_DATA";
+    if (ctx.chat.type !== "private") {
+      await ctx.reply("DM only");
+      return;
+    }
+    if (!isAdmin(String(ctx.from.id), adminUserIds)) {
+      await ctx.reply("forbidden");
+      return;
+    }
+    const text = (ctx.message as { text?: string }).text ?? "";
+    const parts = text.trim().split(/\s+/);
+    const confirmed = parts[1] === phrase;
+    if (!allowAdminReset) {
+      logAdminReset({
+        adminUserId: ctx.from.id,
+        chatId: ctx.chat.id,
+        enabled: allowAdminReset,
+        confirmed,
+        errorCode: "RESET_DISABLED",
+        errorDescription: "ALLOW_ADMIN_RESET is not true"
+      });
+      await ctx.reply("reset disabled");
+      return;
+    }
+    if (!confirmed) {
+      logAdminReset({
+        adminUserId: ctx.from.id,
+        chatId: ctx.chat.id,
+        enabled: allowAdminReset,
+        confirmed,
+        errorCode: "CONFIRMATION_MISMATCH",
+        errorDescription: "invalid confirmation phrase"
+      });
+      await ctx.reply("Send: /admin_reset CONFIRM_DELETE_ALL_TEST_DATA");
+      return;
+    }
+    try {
+      const deletedCounts = await workspaceAdminService.resetAllWorkspaceData();
+      logAdminReset({
+        adminUserId: ctx.from.id,
+        chatId: ctx.chat.id,
+        enabled: allowAdminReset,
+        confirmed,
+        deletedCounts
+      });
+      await ctx.reply(
+        `Reset done: WorkspaceMember=${deletedCounts.workspaceMembers}, WorkspaceInvite=${deletedCounts.workspaceInvites}, Workspace=${deletedCounts.workspaces}`
+      );
+    } catch (error: unknown) {
+      const description = error instanceof Error ? error.message : String(error);
+      logAdminReset({
+        adminUserId: ctx.from.id,
+        chatId: ctx.chat.id,
+        enabled: allowAdminReset,
+        confirmed,
+        errorCode: "RESET_FAILED",
+        errorDescription: description
+      });
+      await ctx.reply("reset failed");
+    }
   });
 
   bot.hears(["Admin"], async (ctx) => {
@@ -369,11 +570,29 @@ export function createBot(
       return;
     }
     try {
-      const updated = await workspaceAdminService.setAssignerForLatest(String(ctx.from.id), false);
-      await ctx.reply(`Assigner set: ${updated.assignerUserId}`);
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      await ctx.reply(message.includes("already") ? "Assigner already set" : "No workspace found");
+      const latestWorkspaceId = await workspaceAdminService.getLatestWorkspaceId();
+      const usage = "Send: /admin_set_assigner <workspaceId> <userId>";
+      const hint = latestWorkspaceId
+        ? `${usage}\nLatest workspaceId: ${latestWorkspaceId}`
+        : usage;
+      await ctx.reply(hint);
+      logAdminAction({
+        handler: "admin_set_assigner_button",
+        adminUserId: ctx.from.id,
+        workspaceId: latestWorkspaceId,
+        targetUserId: null,
+        result: "OK"
+      });
+    } catch {
+      await ctx.reply("Send: /admin_set_assigner <workspaceId> <userId>");
+      logAdminAction({
+        handler: "admin_set_assigner_button",
+        adminUserId: ctx.from.id,
+        workspaceId: null,
+        targetUserId: null,
+        result: "ERROR",
+        errorCode: "LATEST_WORKSPACE_READ_FAILED"
+      });
     }
   });
 

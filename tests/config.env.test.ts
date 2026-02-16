@@ -24,7 +24,8 @@ describe("loadEnv", () => {
       telegramBotToken: "token",
       telegramWebhookSecretToken: "secret",
       telegramBotUsername: "my_bot",
-      adminUserIds: ["1", "2"]
+      adminUserIds: ["1", "2"],
+      allowAdminReset: false
     });
   });
 
@@ -55,6 +56,7 @@ describe("loadEnv", () => {
 
     expect(loadEnv().port).toBe(8080);
     expect(loadEnv().adminUserIds).toEqual([]);
+    expect(loadEnv().allowAdminReset).toBe(false);
   });
 
   it("throws when required vars are missing", async () => {
@@ -98,5 +100,17 @@ describe("loadEnv", () => {
     expect(isAdmin("1", ["1", "2"])).toBe(true);
     expect(isAdmin(2, ["1", "2"])).toBe(true);
     expect(isAdmin("3", ["1", "2"])).toBe(false);
+  });
+
+  it("parses ALLOW_ADMIN_RESET=true", async () => {
+    process.env = {
+      ...ORIGINAL_ENV,
+      TELEGRAM_BOT_TOKEN: "token",
+      TELEGRAM_WEBHOOK_SECRET_TOKEN: "secret",
+      BOT_USERNAME: "my_bot",
+      ALLOW_ADMIN_RESET: "true"
+    };
+    const { loadEnv } = await import("../src/config/env.js");
+    expect(loadEnv().allowAdminReset).toBe(true);
   });
 });

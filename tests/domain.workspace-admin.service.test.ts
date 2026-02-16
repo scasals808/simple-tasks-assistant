@@ -19,6 +19,16 @@ function makeWorkspace(overrides: Partial<{ assignerUserId: string | null }> = {
   };
 }
 
+function makeResetRepo() {
+  return {
+    resetAllWorkspaceData: vi.fn(async () => ({
+      workspaceMembers: 0,
+      workspaceInvites: 0,
+      workspaces: 0
+    }))
+  };
+}
+
 describe("WorkspaceAdminService", () => {
   it("creates manual workspace", async () => {
     const createManual = vi.fn(async (_chatId: string, title?: string) => makeWorkspace({}));
@@ -39,7 +49,7 @@ describe("WorkspaceAdminService", () => {
         createdAt: new Date("2026-02-16T00:00:00.000Z")
       }))
     };
-    const service = new WorkspaceAdminService(workspaceRepo, inviteRepo);
+    const service = new WorkspaceAdminService(workspaceRepo, inviteRepo, makeResetRepo());
 
     const result = await service.createWorkspaceManual("My Team");
 
@@ -68,7 +78,7 @@ describe("WorkspaceAdminService", () => {
       findValidByToken: vi.fn(async () => null),
       createInvite
     };
-    const service = new WorkspaceAdminService(workspaceRepo, inviteRepo);
+    const service = new WorkspaceAdminService(workspaceRepo, inviteRepo, makeResetRepo());
 
     const result = await service.createInvite("ws-1");
 
@@ -94,11 +104,38 @@ describe("WorkspaceAdminService", () => {
         createdAt: new Date("2026-02-16T00:00:00.000Z")
       }))
     };
-    const service = new WorkspaceAdminService(workspaceRepo, inviteRepo);
+    const service = new WorkspaceAdminService(workspaceRepo, inviteRepo, makeResetRepo());
 
     await expect(service.setAssigner("ws-1", "admin-2", false)).rejects.toBeInstanceOf(
       WorkspaceAdminError
     );
+  });
+
+  it("sets assigner when workspace assigner is empty", async () => {
+    const updateAssigner = vi.fn(async () => makeWorkspace({ assignerUserId: "executor-1" }));
+    const workspaceRepo: WorkspaceRepo = {
+      ensureByChatId: vi.fn(async () => makeWorkspace()),
+      findById: vi.fn(async () => makeWorkspace({ assignerUserId: null })),
+      createManual: vi.fn(async () => makeWorkspace()),
+      findLatest: vi.fn(async () => makeWorkspace()),
+      updateAssigner
+    };
+    const inviteRepo: WorkspaceInviteRepo = {
+      findValidByToken: vi.fn(async () => null),
+      createInvite: vi.fn(async (_workspaceId, token) => ({
+        id: "wi-1",
+        token,
+        workspaceId: "ws-1",
+        expiresAt: null,
+        createdAt: new Date("2026-02-16T00:00:00.000Z")
+      }))
+    };
+    const service = new WorkspaceAdminService(workspaceRepo, inviteRepo, makeResetRepo());
+
+    const result = await service.setAssigner("ws-1", "executor-1", false);
+
+    expect(result.assignerUserId).toBe("executor-1");
+    expect(updateAssigner).toHaveBeenCalledWith("ws-1", "executor-1");
   });
 
   it("allows assigner replace when explicit flag is true", async () => {
@@ -120,7 +157,7 @@ describe("WorkspaceAdminService", () => {
         createdAt: new Date("2026-02-16T00:00:00.000Z")
       }))
     };
-    const service = new WorkspaceAdminService(workspaceRepo, inviteRepo);
+    const service = new WorkspaceAdminService(workspaceRepo, inviteRepo, makeResetRepo());
 
     const result = await service.setAssigner("ws-1", "admin-2", true);
 
@@ -146,7 +183,7 @@ describe("WorkspaceAdminService", () => {
         createdAt: new Date("2026-02-16T00:00:00.000Z")
       }))
     };
-    const service = new WorkspaceAdminService(workspaceRepo, inviteRepo);
+    const service = new WorkspaceAdminService(workspaceRepo, inviteRepo, makeResetRepo());
 
     await expect(service.createInvite("missing")).rejects.toBeInstanceOf(WorkspaceAdminError);
   });
@@ -169,7 +206,7 @@ describe("WorkspaceAdminService", () => {
         createdAt: new Date("2026-02-16T00:00:00.000Z")
       }))
     };
-    const service = new WorkspaceAdminService(workspaceRepo, inviteRepo);
+    const service = new WorkspaceAdminService(workspaceRepo, inviteRepo, makeResetRepo());
 
     await expect(service.createInviteForLatest()).rejects.toBeInstanceOf(WorkspaceAdminError);
     await expect(service.setAssignerForLatest("admin-1")).rejects.toBeInstanceOf(WorkspaceAdminError);

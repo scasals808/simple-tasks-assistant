@@ -198,16 +198,24 @@ export class PrismaTaskRepo implements TaskRepo {
       createdTaskId?: string | null;
     }
   ): Promise<TaskDraft> {
+    const data: {
+      step?: DraftStep;
+      assigneeId?: string | null;
+      priority?: Task["priority"] | null;
+      deadlineAt?: Date | null;
+      status?: "PENDING" | "FINAL";
+      createdTaskId?: string | null;
+    } = {};
+    if (patch.step !== undefined) data.step = patch.step;
+    if (patch.assigneeId !== undefined) data.assigneeId = patch.assigneeId;
+    if (patch.priority !== undefined) data.priority = patch.priority;
+    if (patch.deadlineAt !== undefined) data.deadlineAt = patch.deadlineAt;
+    if (patch.status !== undefined) data.status = patch.status;
+    if (patch.createdTaskId !== undefined) data.createdTaskId = patch.createdTaskId;
+
     const row = await prisma.taskDraft.update({
       where: { id: draftId },
-      data: {
-        step: patch.step,
-        assigneeId: patch.assigneeId,
-        priority: patch.priority,
-        deadlineAt: patch.deadlineAt,
-        status: patch.status,
-        createdTaskId: patch.createdTaskId
-      }
+      data
     });
     return mapDraft(row);
   }

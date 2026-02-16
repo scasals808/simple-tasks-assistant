@@ -1,5 +1,9 @@
 import type { WorkspaceInviteRepo } from "../ports/workspace-invite.repo.port.js";
 import type { WorkspaceRepo } from "../ports/workspace.repo.port.js";
+import type {
+  WorkspaceResetCounts,
+  WorkspaceResetRepo
+} from "../ports/workspace-reset.repo.port.js";
 
 export class WorkspaceAdminError extends Error {
   constructor(message: string) {
@@ -11,7 +15,8 @@ export class WorkspaceAdminError extends Error {
 export class WorkspaceAdminService {
   constructor(
     private readonly workspaceRepo: WorkspaceRepo,
-    private readonly workspaceInviteRepo: WorkspaceInviteRepo
+    private readonly workspaceInviteRepo: WorkspaceInviteRepo,
+    private readonly workspaceResetRepo: WorkspaceResetRepo
   ) {}
 
   async createWorkspaceManual(title?: string): Promise<{ id: string; title: string | null }> {
@@ -68,5 +73,14 @@ export class WorkspaceAdminService {
       throw new WorkspaceAdminError("Workspace not found");
     }
     return this.setAssigner(workspace.id, userId, replace);
+  }
+
+  async getLatestWorkspaceId(): Promise<string | null> {
+    const workspace = await this.workspaceRepo.findLatest();
+    return workspace?.id ?? null;
+  }
+
+  async resetAllWorkspaceData(): Promise<WorkspaceResetCounts> {
+    return this.workspaceResetRepo.resetAllWorkspaceData();
   }
 }

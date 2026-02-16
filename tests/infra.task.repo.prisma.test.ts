@@ -79,3 +79,25 @@ describe("PrismaTaskRepo.createFromDraft", () => {
     expect(result.task.id).toBe("task-existing");
   });
 });
+
+describe("PrismaTaskRepo.updateDraft", () => {
+  it("omits undefined fields from prisma update data", async () => {
+    prismaMocks.taskDraftUpdate.mockResolvedValueOnce(makeDraft());
+
+    const repo = new PrismaTaskRepo();
+    await repo.updateDraft("d-1", {
+      step: "CHOOSE_PRIORITY",
+      assigneeId: undefined,
+      priority: null
+    });
+
+    expect(prismaMocks.taskDraftUpdate).toHaveBeenCalledTimes(1);
+    expect(prismaMocks.taskDraftUpdate).toHaveBeenCalledWith({
+      where: { id: "d-1" },
+      data: {
+        step: "CHOOSE_PRIORITY",
+        priority: null
+      }
+    });
+  });
+});

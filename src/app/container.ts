@@ -8,6 +8,7 @@ import { WorkspaceMemberRepoPrisma } from "../infra/db/workspace-member.repo.pri
 import { WorkspaceInviteRepoPrisma } from "../infra/db/workspace-invite.repo.prisma.js";
 import { WorkspaceInviteService } from "../domain/workspaces/workspace-invite.service.js";
 import { WorkspaceAdminService } from "../domain/workspaces/workspace-admin.service.js";
+import { WorkspaceResetRepoPrisma } from "../infra/db/workspace-reset.repo.prisma.js";
 
 const clock: Clock = {
   now: () => new Date()
@@ -17,6 +18,7 @@ const taskRepo = new PrismaTaskRepo();
 const workspaceRepo = new WorkspaceRepoPrisma();
 const workspaceMemberRepo = new WorkspaceMemberRepoPrisma();
 const workspaceInviteRepo = new WorkspaceInviteRepoPrisma();
+const workspaceResetRepo = new WorkspaceResetRepoPrisma();
 const taskService = new TaskService(clock, taskRepo);
 const workspaceService = new WorkspaceService(workspaceRepo);
 const workspaceMemberService = new WorkspaceMemberService(clock, workspaceMemberRepo);
@@ -28,7 +30,8 @@ const workspaceInviteService = new WorkspaceInviteService(
 );
 const workspaceAdminService = new WorkspaceAdminService(
   workspaceRepo,
-  workspaceInviteRepo
+  workspaceInviteRepo,
+  workspaceResetRepo
 );
 
 export const container = {
@@ -38,6 +41,7 @@ export const container = {
   workspaceInviteService,
   workspaceMemberRepo,
   workspaceMemberService,
+  workspaceResetRepo,
   workspaceRepo,
   workspaceService,
   taskRepo,
