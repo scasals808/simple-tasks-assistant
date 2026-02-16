@@ -80,9 +80,10 @@ describe("bot admin handlers", () => {
       "token",
       taskService,
       "my_bot",
+      {} as never,
       workspaceInviteService,
       workspaceAdminService,
-      ["1"],
+      new Set(["1"]),
       false
     ) as unknown as MockBot;
 
@@ -118,9 +119,10 @@ describe("bot admin handlers", () => {
       "token",
       taskService,
       "my_bot",
+      {} as never,
       workspaceInviteService,
       workspaceAdminService,
-      ["1"],
+      new Set(["1"]),
       false
     ) as unknown as MockBot;
 
@@ -157,9 +159,10 @@ describe("bot admin handlers", () => {
       "token",
       taskService,
       "my_bot",
+      {} as never,
       workspaceInviteService,
       workspaceAdminService,
-      ["1"],
+      new Set(["1"]),
       false
     ) as unknown as MockBot;
 
@@ -174,6 +177,45 @@ describe("bot admin handlers", () => {
 
     expect(setAssigner).toHaveBeenCalledWith("ws-1", "42", false);
     expect(reply).toHaveBeenCalledWith("Assigner set: 42");
+  });
+
+  it("parses /admin_create_team and calls workspace service", async () => {
+    const reply = vi.fn(async () => undefined);
+    const ensureWorkspaceForChatWithResult = vi.fn(async () => ({
+      workspace: { id: "ws-1", chatId: "-100123", title: "Alpha Team" },
+      result: "created" as const
+    }));
+    const taskService = {} as never;
+    const workspaceInviteService = {} as never;
+    const workspaceService = {
+      ensureWorkspaceForChatWithResult,
+      ensureWorkspaceForChat: vi.fn()
+    } as never;
+    const workspaceAdminService = {} as never;
+    const bot = createBot(
+      "token",
+      taskService,
+      "my_bot",
+      workspaceService,
+      workspaceInviteService,
+      workspaceAdminService,
+      new Set(["1"]),
+      false
+    ) as unknown as MockBot;
+
+    const handler = bot.commandHandlers.get("admin_create_team");
+    expect(handler).toBeDefined();
+    await handler?.({
+      chat: { type: "private" },
+      from: { id: 1 },
+      message: { text: "/admin_create_team -100123 Alpha Team" },
+      reply
+    });
+
+    expect(ensureWorkspaceForChatWithResult).toHaveBeenCalledWith("-100123", "Alpha Team");
+    expect(reply).toHaveBeenCalledWith(
+      "Team created/exists: ws-1 | chatId=-100123 | title=Alpha Team"
+    );
   });
 
   it("admin_reset returns forbidden for non-admin", async () => {
@@ -191,9 +233,10 @@ describe("bot admin handlers", () => {
       "token",
       taskService,
       "my_bot",
+      {} as never,
       workspaceInviteService,
       workspaceAdminService,
-      ["1"],
+      new Set(["1"]),
       true
     ) as unknown as MockBot;
     const handler = bot.commandHandlers.get("admin_reset");
@@ -220,9 +263,10 @@ describe("bot admin handlers", () => {
       "token",
       taskService,
       "my_bot",
+      {} as never,
       workspaceInviteService,
       workspaceAdminService,
-      ["1"],
+      new Set(["1"]),
       false
     ) as unknown as MockBot;
     const handler = bot.commandHandlers.get("admin_reset");
@@ -250,9 +294,10 @@ describe("bot admin handlers", () => {
       "token",
       taskService,
       "my_bot",
+      {} as never,
       workspaceInviteService,
       workspaceAdminService,
-      ["1"],
+      new Set(["1"]),
       true
     ) as unknown as MockBot;
     const handler = bot.commandHandlers.get("admin_reset");
@@ -281,9 +326,10 @@ describe("bot admin handlers", () => {
       "token",
       taskService,
       "my_bot",
+      {} as never,
       workspaceInviteService,
       workspaceAdminService,
-      ["1"],
+      new Set(["1"]),
       true
     ) as unknown as MockBot;
     const handler = bot.commandHandlers.get("admin_reset");

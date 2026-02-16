@@ -30,6 +30,7 @@ describe("WorkspaceInviteService.acceptInvite", () => {
     };
     const workspaceRepo: WorkspaceRepo = {
       ensureByChatId: vi.fn(async () => makeWorkspace()),
+      findByChatId: vi.fn(async () => makeWorkspace()),
       findById: vi.fn(async () => makeWorkspace()),
       createManual: vi.fn(async () => makeWorkspace()),
       findLatest: vi.fn(async () => makeWorkspace()),
@@ -65,6 +66,7 @@ describe("WorkspaceInviteService.acceptInvite", () => {
     };
     const workspaceRepo: WorkspaceRepo = {
       ensureByChatId: vi.fn(async () => makeWorkspace()),
+      findByChatId: vi.fn(async () => makeWorkspace()),
       findById: vi.fn(async () => makeWorkspace()),
       createManual: vi.fn(async () => makeWorkspace()),
       findLatest: vi.fn(async () => makeWorkspace()),
@@ -112,6 +114,7 @@ describe("WorkspaceInviteService.acceptInvite", () => {
     };
     const workspaceRepo: WorkspaceRepo = {
       ensureByChatId: vi.fn(async () => makeWorkspace()),
+      findByChatId: vi.fn(async () => makeWorkspace()),
       findById: vi.fn(async () => makeWorkspace()),
       createManual: vi.fn(async () => makeWorkspace()),
       findLatest: vi.fn(async () => makeWorkspace()),
@@ -165,6 +168,7 @@ describe("WorkspaceInviteService.acceptInvite", () => {
     };
     const workspaceRepo: WorkspaceRepo = {
       ensureByChatId: vi.fn(async () => makeWorkspace()),
+      findByChatId: vi.fn(async () => makeWorkspace()),
       findById: vi.fn(async () => makeWorkspace()),
       createManual: vi.fn(async () => makeWorkspace()),
       findLatest: vi.fn(async () => makeWorkspace()),

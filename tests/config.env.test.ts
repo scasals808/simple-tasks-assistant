@@ -24,7 +24,7 @@ describe("loadEnv", () => {
       telegramBotToken: "token",
       telegramWebhookSecretToken: "secret",
       telegramBotUsername: "my_bot",
-      adminUserIds: ["1", "2"],
+      adminUserIds: new Set(["1", "2"]),
       allowAdminReset: false
     });
   });
@@ -55,7 +55,7 @@ describe("loadEnv", () => {
     const { loadEnv } = await import("../src/config/env.js");
 
     expect(loadEnv().port).toBe(8080);
-    expect(loadEnv().adminUserIds).toEqual([]);
+    expect(loadEnv().adminUserIds).toEqual(new Set());
     expect(loadEnv().allowAdminReset).toBe(false);
   });
 
@@ -97,9 +97,25 @@ describe("loadEnv", () => {
 
   it("checks admin allowlist", async () => {
     const { isAdmin } = await import("../src/config/env.js");
-    expect(isAdmin("1", ["1", "2"])).toBe(true);
-    expect(isAdmin(2, ["1", "2"])).toBe(true);
-    expect(isAdmin("3", ["1", "2"])).toBe(false);
+    const allowlist = new Set(["1", "2"]);
+    expect(isAdmin("1", allowlist)).toBe(true);
+    expect(isAdmin(2, allowlist)).toBe(true);
+    expect(isAdmin("3", allowlist)).toBe(false);
+  });
+
+  it("parses ADMIN_USER_IDS with spaces into set", async () => {
+    process.env = {
+      ...ORIGINAL_ENV,
+      TELEGRAM_BOT_TOKEN: "token",
+      TELEGRAM_WEBHOOK_SECRET_TOKEN: "secret",
+      BOT_USERNAME: "my_bot",
+      ADMIN_USER_IDS: " 197419258, 123 "
+    };
+    const { isAdmin, loadEnv } = await import("../src/config/env.js");
+    const env = loadEnv();
+    expect(env.adminUserIds).toEqual(new Set(["197419258", "123"]));
+    expect(isAdmin(197419258, env.adminUserIds)).toBe(true);
+    expect(isAdmin("197419258", env.adminUserIds)).toBe(true);
   });
 
   it("parses ALLOW_ADMIN_RESET=true", async () => {

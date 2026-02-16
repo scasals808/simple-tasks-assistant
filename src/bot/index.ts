@@ -4,6 +4,7 @@ import type { TaskPriority } from "../domain/tasks/task.types.js";
 import type { TaskService } from "../domain/tasks/task.service.js";
 import type { WorkspaceInviteService } from "../domain/workspaces/workspace-invite.service.js";
 import type { WorkspaceAdminService } from "../domain/workspaces/workspace-admin.service.js";
+import type { WorkspaceService } from "../domain/workspaces/workspace.service.js";
 import { isAdmin } from "../config/env.js";
 import { handleStartJoin } from "./start/handlers/start.join.js";
 import { handleStartPlain } from "./start/handlers/start.plain.js";
@@ -153,6 +154,55 @@ function logAdminReset(input: {
   console.log("[bot.admin_reset]", payload);
 }
 
+function logAdminCreateTeam(input: {
+  adminUserId?: number;
+  chatId?: string | null;
+  title?: string | null;
+  result: "created" | "existing" | "error";
+  workspaceId?: string | null;
+  errorCode?: string | null;
+}): void {
+  const payload = {
+    handler: "admin_create_team",
+    admin_user_id: input.adminUserId ?? null,
+    chatId: input.chatId ?? null,
+    title: input.title ?? null,
+    result: input.result,
+    workspaceId: input.workspaceId ?? null,
+    error_code: input.errorCode ?? null
+  };
+  if (input.result === "error") {
+    console.warn("[bot.admin_create_team]", payload);
+    return;
+  }
+  console.log("[bot.admin_create_team]", payload);
+}
+
+function logMenuRender(input: {
+  userId?: number;
+  isAdminUser: boolean;
+  buttonsRenderedCount: number;
+}): void {
+  console.log("[bot.menu_render]", {
+    handler: "menu_render",
+    user_id: input.userId ?? null,
+    is_admin: input.isAdminUser,
+    buttons_rendered_count: input.buttonsRenderedCount
+  });
+}
+
+export function buildMainMenuRows(
+  userId: number | undefined,
+  adminUserIds: Set<string>
+): string[][] {
+  const isAdminUser = typeof userId === "number" && isAdmin(userId, adminUserIds);
+  const rows: string[][] = [["📌 Мои задачи", "➕ Создать задачу"], ["ℹ️ Помощь"]];
+  if (isAdminUser) {
+    rows.push(["Admin"]);
+  }
+  return rows;
+}
+
 async function updateOrReply(
   ctx: {
     editMessageText(text: string, extra?: { reply_markup?: unknown }): Promise<unknown>;
@@ -195,9 +245,10 @@ export function createBot(
   token: string,
   taskService: TaskService,
   botUsername: string,
+  workspaceService: WorkspaceService,
   workspaceInviteService: WorkspaceInviteService,
   workspaceAdminService: WorkspaceAdminService,
-  adminUserIds: string[],
+  adminUserIds: Set<string>,
   allowAdminReset: boolean
 ): Telegraf {
   const bot = new Telegraf(token);
@@ -218,9 +269,16 @@ export function createBot(
       await handleStartTask(ctx, taskService, parsed.token, assigneeKeyboard);
       return;
     }
+    const rows = buildMainMenuRows(ctx.from?.id, adminUserIds);
+    const count = rows.reduce((acc, row) => acc + row.length, 0);
+    logMenuRender({
+      userId: ctx.from?.id,
+      isAdminUser: typeof ctx.from?.id === "number" && isAdmin(ctx.from.id, adminUserIds),
+      buttonsRenderedCount: count
+    });
     await handleStartPlain(
       ctx,
-      Markup.keyboard([["📌 Мои задачи", "➕ Создать задачу"], ["ℹ️ Помощь"], ["Admin"]]).resize()
+      Markup.keyboard(rows).resize()
     );
   });
 
@@ -241,6 +299,47 @@ export function createBot(
       return;
     }
     await ctx.reply("Admin menu", adminMenuKeyboard());
+  });
+
+  bot.command("admin_create_team", async (ctx) => {
+    if (ctx.chat.type !== "private") {
+      return;
+    }
+    if (!isAdmin(String(ctx.from.id), adminUserIds)) {
+      await ctx.reply("Forbidden");
+      return;
+    }
+    const text = (ctx.message as { text?: string }).text ?? "";
+    const parts = text.trim().split(/\s+/);
+    const chatId = parts[1];
+    const title = parts.slice(2).join(" ").trim() || undefined;
+    if (!chatId || !/^-?\d+$/.test(chatId)) {
+      await ctx.reply("Send: /admin_create_team <chatId> [title...]");
+      return;
+    }
+    try {
+      const result = await workspaceService.ensureWorkspaceForChatWithResult(chatId, title);
+      logAdminCreateTeam({
+        adminUserId: ctx.from.id,
+        chatId,
+        title: title ?? null,
+        result: result.result,
+        workspaceId: result.workspace.id
+      });
+      await ctx.reply(
+        `Team created/exists: ${result.workspace.id} | chatId=${chatId} | title=${result.workspace.title ?? ""}`
+      );
+    } catch {
+      logAdminCreateTeam({
+        adminUserId: ctx.from.id,
+        chatId,
+        title: title ?? null,
+        result: "error",
+        workspaceId: null,
+        errorCode: "CREATE_TEAM_FAILED"
+      });
+      await ctx.reply("create team failed");
+    }
   });
 
   bot.command("admin_set_assigner", async (ctx) => {
@@ -545,8 +644,7 @@ export function createBot(
       await ctx.reply("Forbidden");
       return;
     }
-    const created = await workspaceAdminService.createWorkspaceManual("Admin Team");
-    await ctx.reply(`Team created: ${created.id}`);
+    await ctx.reply("Send: /admin_create_team <chatId> [title...]");
   });
 
   bot.action(/^admin_generate_invite$/, async (ctx) => {

@@ -39,6 +39,13 @@ export class WorkspaceRepoPrisma implements WorkspaceRepo {
     return row ? mapWorkspace(row) : null;
   }
 
+  async findByChatId(chatId: string): Promise<Workspace | null> {
+    const row = await prisma.workspace.findUnique({
+      where: { chatId }
+    });
+    return row ? mapWorkspace(row) : null;
+  }
+
   async createManual(chatId: string, title?: string): Promise<Workspace> {
     const row = await prisma.workspace.create({
       data: {

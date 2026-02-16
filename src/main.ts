@@ -11,6 +11,7 @@ const bot = createBot(
   env.telegramBotToken,
   container.taskService,
   env.telegramBotUsername,
+  container.workspaceService,
   container.workspaceInviteService,
   container.workspaceAdminService,
   env.adminUserIds,

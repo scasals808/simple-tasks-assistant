@@ -3,7 +3,7 @@ type EnvConfig = {
   telegramBotToken: string;
   telegramWebhookSecretToken: string;
   telegramBotUsername: string;
-  adminUserIds: string[];
+  adminUserIds: Set<string>;
   allowAdminReset: boolean;
 };
 
@@ -21,20 +21,22 @@ function parsePort(value: string | undefined): number {
   return parsed;
 }
 
-function parseAdminUserIds(value: string | undefined): string[] {
-  if (!value) return [];
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
+function parseAdminUserIds(value: string | undefined): Set<string> {
+  if (!value) return new Set<string>();
+  return new Set(
+    value
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean)
+  );
 }
 
 function parseAllowAdminReset(value: string | undefined): boolean {
   return value === "true";
 }
 
-export function isAdmin(userId: string | number, adminUserIds: string[]): boolean {
-  return adminUserIds.includes(String(userId));
+export function isAdmin(userId: string | number, adminUserIds: Set<string>): boolean {
+  return adminUserIds.has(String(userId));
 }
 
 export function loadEnv(): EnvConfig {

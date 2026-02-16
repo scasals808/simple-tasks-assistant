@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { buildSourceLink, extractStartPayload, parseStartPayload } from "../src/bot/index.js";
+import {
+  buildMainMenuRows,
+  buildSourceLink,
+  extractStartPayload,
+  parseStartPayload
+} from "../src/bot/index.js";
 
 describe("bot helpers", () => {
   it("builds public source link for username chats", () => {
@@ -36,6 +41,16 @@ describe("bot helpers", () => {
       type: "none",
       token: null
     });
+  });
+
+  it("builds menu rows without admin button for non-admin", () => {
+    const rows = buildMainMenuRows(2, new Set(["1"]));
+    expect(rows).toEqual([["📌 Мои задачи", "➕ Создать задачу"], ["ℹ️ Помощь"]]);
+  });
+
+  it("builds menu rows with admin button for admin user", () => {
+    const rows = buildMainMenuRows(1, new Set(["1"]));
+    expect(rows).toEqual([["📌 Мои задачи", "➕ Создать задачу"], ["ℹ️ Помощь"], ["Admin"]]);
   });
 
 });
