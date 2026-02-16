@@ -15,6 +15,22 @@ CREATE TABLE "TaskDraft" (
     CONSTRAINT "TaskDraft_pkey" PRIMARY KEY ("id")
 );
 
+-- Deduplicate historical tasks before adding unique(sourceChatId, sourceMessageId).
+-- Keep the earliest task (createdAt, then id), drop the rest.
+WITH ranked_tasks AS (
+    SELECT
+        "id",
+        ROW_NUMBER() OVER (
+            PARTITION BY "sourceChatId", "sourceMessageId"
+            ORDER BY "createdAt" ASC, "id" ASC
+        ) AS row_num
+    FROM "Task"
+)
+DELETE FROM "Task" t
+USING ranked_tasks r
+WHERE t."id" = r."id"
+  AND r.row_num > 1;
+
 -- Preserve existing tasks with synthetic drafts.
 INSERT INTO "TaskDraft" (
     "id",
