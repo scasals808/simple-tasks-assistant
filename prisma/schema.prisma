@@ -10,6 +10,7 @@ datasource db {
 model Task {
   id              String   @id @default(cuid())
   sourceDraftId   String   @unique
+  workspaceId     String?
   sourceChatId    String
   sourceMessageId String
   sourceText      String
@@ -24,8 +25,10 @@ model Task {
 
   sourceDraft TaskDraft @relation("TaskSourceDraft", fields: [sourceDraftId], references: [id])
   createdByDraft TaskDraft[] @relation("TaskDraftCreatedTask")
+  workspace      Workspace?   @relation(fields: [workspaceId], references: [id])
 
   @@unique([sourceChatId, sourceMessageId])
+  @@index([workspaceId])
 }
 
 model TaskDraft {
@@ -34,6 +37,7 @@ model TaskDraft {
   status          String
   step            String
   createdTaskId   String?
+  workspaceId     String?
   sourceChatId    String
   sourceMessageId String
   sourceText      String
@@ -47,6 +51,21 @@ model TaskDraft {
 
   createdTask Task? @relation("TaskDraftCreatedTask", fields: [createdTaskId], references: [id])
   task        Task? @relation("TaskSourceDraft")
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id])
+
+  @@index([workspaceId])
+}
+
+model Workspace {
+  id             String   @id @default(cuid())
+  chatId         String   @unique
+  title          String?
+  assignerUserId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tasks  Task[]
+  drafts TaskDraft[]
 }
 
 model PendingDeletion {
