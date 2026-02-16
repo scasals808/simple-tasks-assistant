@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 
 import type {
   CreateFromDraftResult,
+  DraftStep,
   TaskDraft,
   TaskRepo
 } from "../../domain/ports/task.repo.port.js";
@@ -43,12 +44,16 @@ function mapDraft(row: {
   id: string;
   token: string;
   status: string;
+  step: string;
   createdTaskId: string | null;
   sourceChatId: string;
   sourceMessageId: string;
   sourceText: string;
   sourceLink: string | null;
   creatorUserId: string;
+  assigneeId: string | null;
+  priority: string | null;
+  deadlineAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }): TaskDraft {
@@ -56,12 +61,16 @@ function mapDraft(row: {
     id: row.id,
     token: row.token,
     status: row.status as TaskDraft["status"],
+    step: row.step as TaskDraft["step"],
     createdTaskId: row.createdTaskId,
     sourceChatId: row.sourceChatId,
     sourceMessageId: row.sourceMessageId,
     sourceText: row.sourceText,
     sourceLink: row.sourceLink,
     creatorUserId: row.creatorUserId,
+    assigneeId: row.assigneeId,
+    priority: row.priority as TaskDraft["priority"],
+    deadlineAt: row.deadlineAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
   };
@@ -83,12 +92,16 @@ export class PrismaTaskRepo implements TaskRepo {
         id: task.id,
         token: `legacy-${task.id}`,
         status: "FINAL",
+        step: "FINAL",
         createdTaskId: task.id,
         sourceChatId: task.sourceChatId,
         sourceMessageId: task.sourceMessageId,
         sourceText: task.sourceText,
         sourceLink: task.sourceLink,
         creatorUserId: task.creatorUserId,
+        assigneeId: task.assigneeUserId,
+        priority: task.priority,
+        deadlineAt: task.deadlineAt,
         createdAt: task.createdAt,
         updatedAt: task.updatedAt
       }
@@ -127,11 +140,15 @@ export class PrismaTaskRepo implements TaskRepo {
       data: {
         token: input.token,
         status: "PENDING",
+        step: "CHOOSE_ASSIGNEE",
         sourceChatId: input.sourceChatId,
         sourceMessageId: input.sourceMessageId,
         sourceText: input.sourceText,
         sourceLink: input.sourceLink,
-        creatorUserId: input.creatorUserId
+        creatorUserId: input.creatorUserId,
+        assigneeId: null,
+        priority: null,
+        deadlineAt: null
       }
     });
     return mapDraft(row);
@@ -144,6 +161,57 @@ export class PrismaTaskRepo implements TaskRepo {
     return row ? mapDraft(row) : null;
   }
 
+  async findTaskBySource(sourceChatId: string, sourceMessageId: string): Promise<Task | null> {
+    const row = await prisma.task.findUnique({
+      where: {
+        sourceChatId_sourceMessageId: {
+          sourceChatId,
+          sourceMessageId
+        }
+      }
+    });
+    return row ? mapTask(row) : null;
+  }
+
+  async findAwaitingDeadlineDraftByCreator(creatorUserId: string): Promise<TaskDraft | null> {
+    const row = await prisma.taskDraft.findFirst({
+      where: {
+        creatorUserId,
+        status: "PENDING",
+        step: "AWAIT_DEADLINE_INPUT"
+      },
+      orderBy: {
+        updatedAt: "desc"
+      }
+    });
+    return row ? mapDraft(row) : null;
+  }
+
+  async updateDraft(
+    draftId: string,
+    patch: {
+      step?: DraftStep;
+      assigneeId?: string | null;
+      priority?: Task["priority"] | null;
+      deadlineAt?: Date | null;
+      status?: "PENDING" | "FINAL";
+      createdTaskId?: string | null;
+    }
+  ): Promise<TaskDraft> {
+    const row = await prisma.taskDraft.update({
+      where: { id: draftId },
+      data: {
+        step: patch.step,
+        assigneeId: patch.assigneeId,
+        priority: patch.priority,
+        deadlineAt: patch.deadlineAt,
+        status: patch.status,
+        createdTaskId: patch.createdTaskId
+      }
+    });
+    return mapDraft(row);
+  }
+
   async createFromDraft(draft: TaskDraft): Promise<CreateFromDraftResult> {
     try {
       const row = await prisma.task.create({
@@ -154,9 +222,9 @@ export class PrismaTaskRepo implements TaskRepo {
           sourceText: draft.sourceText,
           sourceLink: draft.sourceLink,
           creatorUserId: draft.creatorUserId,
-          assigneeUserId: draft.creatorUserId,
-          priority: "P2",
-          deadlineAt: null,
+          assigneeUserId: draft.assigneeId ?? draft.creatorUserId,
+          priority: draft.priority ?? "P2",
+          deadlineAt: draft.deadlineAt,
           status: "ACTIVE"
         }
       });
@@ -192,6 +260,7 @@ export class PrismaTaskRepo implements TaskRepo {
       where: { id: draftId },
       data: {
         status: "FINAL",
+        step: "FINAL",
         createdTaskId: taskId
       }
     });

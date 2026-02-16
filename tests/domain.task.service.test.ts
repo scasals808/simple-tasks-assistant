@@ -9,7 +9,22 @@ describe("TaskService.createTask", () => {
     const now = new Date("2026-02-16T00:00:00.000Z");
     const clock: Clock = { now: () => now };
     const create = vi.fn(async (task) => task);
-    const repo: TaskRepo = { create };
+    const repo: TaskRepo = {
+      create,
+      createDraft: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      findDraftByToken: vi.fn(async () => null),
+      findTaskBySource: vi.fn(async () => null),
+      findAwaitingDeadlineDraftByCreator: vi.fn(async () => null),
+      updateDraft: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      createFromDraft: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      markDraftFinal: vi.fn(async () => undefined)
+    };
 
     const service = new TaskService(clock, repo);
 

@@ -32,12 +32,16 @@ model TaskDraft {
   id              String   @id @default(cuid())
   token           String   @unique
   status          String
+  step            String
   createdTaskId   String?
   sourceChatId    String
   sourceMessageId String
   sourceText      String
   sourceLink      String?
   creatorUserId   String
+  assigneeId      String?
+  priority        String?
+  deadlineAt      DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

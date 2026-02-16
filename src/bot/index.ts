@@ -1,6 +1,13 @@
 import { Markup, Telegraf } from "telegraf";
 
+import type { TaskPriority } from "../domain/tasks/task.types.js";
 import type { TaskService } from "../domain/tasks/task.service.js";
+
+const ASSIGNEES = [
+  { id: "ivan", label: "Ivan" },
+  { id: "maria", label: "Maria" },
+  { id: "sergey", label: "Sergey" }
+] as const;
 
 function getTelegramError(error: unknown): { code?: number; description?: string } {
   const err = error as { response?: { error_code?: number; description?: string } };
@@ -10,32 +17,87 @@ function getTelegramError(error: unknown): { code?: number; description?: string
   };
 }
 
-function logCallbackStep(
+function tokenShort(token: string): string {
+  return token.slice(0, 8);
+}
+
+function logStep(
   ctx: {
     update?: { update_id?: number };
     from?: { id?: number };
   },
-  step: "answerCbQuery_url" | "answerCbQuery_ack" | "dm_fallback" | "deleteMessage",
+  handler: string,
+  token: string,
+  step: string,
   chatId: number,
   messageId: number,
   error?: unknown
 ): void {
   const info = error ? getTelegramError(error) : undefined;
   const payload = {
+    token: tokenShort(token),
     chat_id: chatId,
     message_id: messageId,
     user_id: ctx.from?.id,
     update_id: ctx.update?.update_id,
-    handler: "create_task",
+    handler,
     step,
     telegram_error_code: info?.code ?? null,
     telegram_description: info?.description ?? (error ? String(error) : null)
   };
   if (error) {
-    console.warn("[bot.create_task.callback_step_failed]", payload);
+    console.warn("[bot.handler_step_failed]", payload);
     return;
   }
-  console.log("[bot.create_task.callback_step_ok]", payload);
+  console.log("[bot.handler_step_ok]", payload);
+}
+
+function assigneeKeyboard(token: string) {
+  return Markup.inlineKeyboard(
+    ASSIGNEES.map((item) => [Markup.button.callback(item.label, `draft_assignee:${token}:${item.id}`)])
+  );
+}
+
+function priorityKeyboard(token: string) {
+  return Markup.inlineKeyboard([
+    [
+      Markup.button.callback("P1", `draft_priority:${token}:P1`),
+      Markup.button.callback("P2", `draft_priority:${token}:P2`),
+      Markup.button.callback("P3", `draft_priority:${token}:P3`)
+    ]
+  ]);
+}
+
+function deadlineKeyboard(token: string) {
+  return Markup.inlineKeyboard([
+    [Markup.button.callback("Today", `draft_deadline:${token}:today`)],
+    [Markup.button.callback("Tomorrow", `draft_deadline:${token}:tomorrow`)],
+    [Markup.button.callback("No deadline", `draft_deadline:${token}:none`)],
+    [Markup.button.callback("Enter date (YYYY-MM-DD)", `draft_deadline:${token}:manual`)]
+  ]);
+}
+
+function confirmKeyboard(token: string) {
+  return Markup.inlineKeyboard([[Markup.button.callback("Create", `draft_confirm:${token}`)]]);
+}
+
+async function updateOrReply(
+  ctx: {
+    editMessageText(text: string, extra?: { reply_markup?: unknown }): Promise<unknown>;
+    reply(text: string, extra?: unknown): Promise<unknown>;
+  },
+  text: string,
+  replyMarkup: unknown
+): Promise<void> {
+  try {
+    await ctx.editMessageText(text, { reply_markup: replyMarkup });
+  } catch {
+    await ctx.reply(text, { reply_markup: replyMarkup });
+  }
+}
+
+function isTaskPriority(value: string): value is TaskPriority {
+  return value === "P1" || value === "P2" || value === "P3";
 }
 
 export function buildSourceLink(
@@ -75,18 +137,18 @@ export function createBot(
 
     const payload = extractStartPayload((ctx.message as { text?: string }).text);
     if (payload) {
-      const result = await taskService.finalizeDraft(payload, String(ctx.from.id));
-      if (!result) {
+      const started = await taskService.startDraftWizard(payload, String(ctx.from.id));
+      if (started.status === "NOT_FOUND") {
         await ctx.reply("Черновик не найден");
         return;
       }
 
-      if (result.status === "ALREADY_EXISTS") {
-        await ctx.reply(`Задача уже существует (id: ${result.task.id})`);
+      if (started.status === "ALREADY_EXISTS") {
+        await ctx.reply(`Задача уже существует (id: ${started.task.id})`);
         return;
       }
 
-      await ctx.reply(`Задача создана (id: ${result.task.id})`);
+      await ctx.reply("Choose assignee", assigneeKeyboard(payload));
       return;
     }
 
@@ -165,20 +227,51 @@ export function createBot(
 
     try {
       await ctx.answerCbQuery(undefined, { url: deepLink });
-      logCallbackStep(ctx, "answerCbQuery_url", callbackChatId, callbackMsgId);
+      logStep(ctx, "create_task", tokenForTask, "answerCbQuery_url", callbackChatId, callbackMsgId);
     } catch (error: unknown) {
-      logCallbackStep(ctx, "answerCbQuery_url", callbackChatId, callbackMsgId, error);
+      logStep(
+        ctx,
+        "create_task",
+        tokenForTask,
+        "answerCbQuery_url",
+        callbackChatId,
+        callbackMsgId,
+        error
+      );
       try {
         await ctx.answerCbQuery("Opening bot...");
-        logCallbackStep(ctx, "answerCbQuery_ack", callbackChatId, callbackMsgId);
+        logStep(
+          ctx,
+          "create_task",
+          tokenForTask,
+          "answerCbQuery_ack",
+          callbackChatId,
+          callbackMsgId
+        );
       } catch (ackError: unknown) {
-        logCallbackStep(ctx, "answerCbQuery_ack", callbackChatId, callbackMsgId, ackError);
+        logStep(
+          ctx,
+          "create_task",
+          tokenForTask,
+          "answerCbQuery_ack",
+          callbackChatId,
+          callbackMsgId,
+          ackError
+        );
       }
       try {
         await ctx.telegram.sendMessage(ctx.from.id, `Open bot: ${deepLink}`);
-        logCallbackStep(ctx, "dm_fallback", callbackChatId, callbackMsgId);
+        logStep(ctx, "create_task", tokenForTask, "dm_fallback", callbackChatId, callbackMsgId);
       } catch (dmError: unknown) {
-        logCallbackStep(ctx, "dm_fallback", callbackChatId, callbackMsgId, dmError);
+        logStep(
+          ctx,
+          "create_task",
+          tokenForTask,
+          "dm_fallback",
+          callbackChatId,
+          callbackMsgId,
+          dmError
+        );
       }
     }
 
@@ -189,11 +282,195 @@ export function createBot(
     ) {
       try {
         await ctx.deleteMessage();
-        logCallbackStep(ctx, "deleteMessage", callbackChat.id, callbackMessageId);
+        logStep(
+          ctx,
+          "create_task",
+          tokenForTask,
+          "deleteMessage",
+          callbackChat.id,
+          callbackMessageId
+        );
       } catch (deleteError: unknown) {
-        logCallbackStep(ctx, "deleteMessage", callbackChat.id, callbackMessageId, deleteError);
+        logStep(
+          ctx,
+          "create_task",
+          tokenForTask,
+          "deleteMessage",
+          callbackChat.id,
+          callbackMessageId,
+          deleteError
+        );
       }
     }
+  });
+
+  bot.action(/^draft_assignee:([^:]+):([^:]+)$/, async (ctx) => {
+    const tokenForTask = ctx.match[1];
+    const assigneeId = ctx.match[2];
+    await ctx.answerCbQuery();
+
+    const callbackMessage = "message" in ctx.callbackQuery ? ctx.callbackQuery.message : undefined;
+    const callbackChatId = callbackMessage?.chat?.id ?? 0;
+    const callbackMsgId = callbackMessage?.message_id ?? 0;
+
+    const result = await taskService.setDraftAssignee(tokenForTask, String(ctx.from.id), assigneeId);
+    if (result.status === "ALREADY_EXISTS") {
+      await updateOrReply(
+        ctx,
+        `Task already exists (id: ${result.task.id})`,
+        Markup.inlineKeyboard([]).reply_markup
+      );
+      return;
+    }
+    if (result.status === "NOT_FOUND") {
+      await updateOrReply(ctx, "Draft not found", Markup.inlineKeyboard([]).reply_markup);
+      return;
+    }
+
+    logStep(
+      ctx,
+      "draft_assignee",
+      tokenForTask,
+      "step_choose_priority",
+      callbackChatId,
+      callbackMsgId
+    );
+    await updateOrReply(ctx, "Choose priority", priorityKeyboard(tokenForTask).reply_markup);
+  });
+
+  bot.action(/^draft_priority:([^:]+):([^:]+)$/, async (ctx) => {
+    const tokenForTask = ctx.match[1];
+    const priority = ctx.match[2];
+    await ctx.answerCbQuery();
+    if (!isTaskPriority(priority)) {
+      await updateOrReply(ctx, "Invalid priority", Markup.inlineKeyboard([]).reply_markup);
+      return;
+    }
+
+    const callbackMessage = "message" in ctx.callbackQuery ? ctx.callbackQuery.message : undefined;
+    const callbackChatId = callbackMessage?.chat?.id ?? 0;
+    const callbackMsgId = callbackMessage?.message_id ?? 0;
+
+    const result = await taskService.setDraftPriority(tokenForTask, String(ctx.from.id), priority);
+    if (result.status === "ALREADY_EXISTS") {
+      await updateOrReply(
+        ctx,
+        `Task already exists (id: ${result.task.id})`,
+        Markup.inlineKeyboard([]).reply_markup
+      );
+      return;
+    }
+    if (result.status === "NOT_FOUND") {
+      await updateOrReply(ctx, "Draft not found", Markup.inlineKeyboard([]).reply_markup);
+      return;
+    }
+
+    logStep(
+      ctx,
+      "draft_priority",
+      tokenForTask,
+      "step_choose_deadline",
+      callbackChatId,
+      callbackMsgId
+    );
+    await updateOrReply(ctx, "Choose deadline", deadlineKeyboard(tokenForTask).reply_markup);
+  });
+
+  bot.action(/^draft_deadline:([^:]+):([^:]+)$/, async (ctx) => {
+    const tokenForTask = ctx.match[1];
+    const choice = ctx.match[2];
+    await ctx.answerCbQuery();
+    if (choice !== "today" && choice !== "tomorrow" && choice !== "none" && choice !== "manual") {
+      await updateOrReply(ctx, "Invalid deadline", Markup.inlineKeyboard([]).reply_markup);
+      return;
+    }
+
+    const callbackMessage = "message" in ctx.callbackQuery ? ctx.callbackQuery.message : undefined;
+    const callbackChatId = callbackMessage?.chat?.id ?? 0;
+    const callbackMsgId = callbackMessage?.message_id ?? 0;
+
+    const result = await taskService.setDraftDeadlineChoice(tokenForTask, String(ctx.from.id), choice);
+    if (result.status === "ALREADY_EXISTS") {
+      await updateOrReply(
+        ctx,
+        `Task already exists (id: ${result.task.id})`,
+        Markup.inlineKeyboard([]).reply_markup
+      );
+      return;
+    }
+    if (result.status === "NOT_FOUND") {
+      await updateOrReply(ctx, "Draft not found", Markup.inlineKeyboard([]).reply_markup);
+      return;
+    }
+
+    if (choice === "manual") {
+      logStep(
+        ctx,
+        "draft_deadline",
+        tokenForTask,
+        "step_await_deadline_input",
+        callbackChatId,
+        callbackMsgId
+      );
+      await updateOrReply(ctx, "Send deadline date in YYYY-MM-DD", Markup.inlineKeyboard([]).reply_markup);
+      return;
+    }
+
+    logStep(ctx, "draft_deadline", tokenForTask, "step_confirm", callbackChatId, callbackMsgId);
+    await updateOrReply(ctx, "Confirm task creation", confirmKeyboard(tokenForTask).reply_markup);
+  });
+
+  bot.action(/^draft_confirm:(.+)$/, async (ctx) => {
+    const tokenForTask = ctx.match[1];
+    await ctx.answerCbQuery();
+
+    const callbackMessage = "message" in ctx.callbackQuery ? ctx.callbackQuery.message : undefined;
+    const callbackChatId = callbackMessage?.chat?.id ?? 0;
+    const callbackMsgId = callbackMessage?.message_id ?? 0;
+
+    const result = await taskService.finalizeDraft(tokenForTask, String(ctx.from.id));
+    if (!result) {
+      await updateOrReply(ctx, "Draft not found", Markup.inlineKeyboard([]).reply_markup);
+      return;
+    }
+    if (result.status === "ALREADY_EXISTS") {
+      await updateOrReply(
+        ctx,
+        `Task already exists (id: ${result.task.id})`,
+        Markup.inlineKeyboard([]).reply_markup
+      );
+      return;
+    }
+
+    logStep(ctx, "draft_confirm", tokenForTask, "step_final", callbackChatId, callbackMsgId);
+    await updateOrReply(
+      ctx,
+      `Task created (id: ${result.task.id})`,
+      Markup.inlineKeyboard([]).reply_markup
+    );
+  });
+
+  bot.on("text", async (ctx) => {
+    if (ctx.chat.type !== "private") {
+      return;
+    }
+
+    const message = ctx.message as { text?: string };
+    const text = message.text?.trim() ?? "";
+    if (!text || text.startsWith("/")) {
+      return;
+    }
+
+    const result = await taskService.setDraftDeadlineFromText(String(ctx.from.id), text);
+    if (result.status === "NOT_FOUND") {
+      return;
+    }
+    if (result.status === "INVALID_DATE") {
+      await ctx.reply("Invalid date. Use YYYY-MM-DD");
+      return;
+    }
+
+    await ctx.reply("Confirm task creation", confirmKeyboard(result.draft.token));
   });
 
   return bot;
