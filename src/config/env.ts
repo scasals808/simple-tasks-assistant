@@ -2,6 +2,7 @@ type EnvConfig = {
   port: number;
   telegramBotToken: string;
   telegramWebhookSecretToken: string;
+  telegramBotUsername: string;
 };
 
 const rawEnv =
@@ -29,9 +30,15 @@ export function loadEnv(): EnvConfig {
     throw new Error("TELEGRAM_WEBHOOK_SECRET_TOKEN is required");
   }
 
+  const telegramBotUsername = rawEnv.BOT_USERNAME;
+  if (!telegramBotUsername) {
+    throw new Error("BOT_USERNAME is required");
+  }
+
   return {
     port: parsePort(rawEnv.PORT),
     telegramBotToken,
-    telegramWebhookSecretToken
+    telegramWebhookSecretToken,
+    telegramBotUsername
   };
 }

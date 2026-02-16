@@ -2,13 +2,6 @@ import { Markup, Telegraf } from "telegraf";
 
 import type { TaskService } from "../domain/tasks/task.service.js";
 
-function getEnv(name: string): string | undefined {
-  return (
-    (globalThis as { process?: { env?: Record<string, string | undefined> } }).process
-      ?.env?.[name] ?? undefined
-  );
-}
-
 function getTelegramError(error: unknown): { code?: number; description?: string } {
   const err = error as { response?: { error_code?: number; description?: string } };
   return {
@@ -17,41 +10,32 @@ function getTelegramError(error: unknown): { code?: number; description?: string
   };
 }
 
-function logDeleteFailure(
+function logCallbackStep(
   ctx: {
     update?: { update_id?: number };
     from?: { id?: number };
   },
+  step: "answerCbQuery_url" | "answerCbQuery_ack" | "dm_fallback" | "deleteMessage",
   chatId: number,
   messageId: number,
-  error: unknown
+  error?: unknown
 ): void {
-  const info = getTelegramError(error);
-  console.warn("[bot.delete_message_failed]", {
+  const info = error ? getTelegramError(error) : undefined;
+  const payload = {
     chat_id: chatId,
     message_id: messageId,
     user_id: ctx.from?.id,
     update_id: ctx.update?.update_id,
     handler: "create_task",
-    telegram_error_code: info.code ?? null,
-    telegram_description: info.description ?? String(error)
-  });
-}
-
-async function deleteTechnicalMessage(
-  ctx: {
-    telegram: { deleteMessage(chatId: number, messageId: number): Promise<unknown> };
-    update?: { update_id?: number };
-    from?: { id?: number };
-  },
-  chatId: number,
-  messageId: number
-): Promise<void> {
-  try {
-    await ctx.telegram.deleteMessage(chatId, messageId);
-  } catch (error: unknown) {
-    logDeleteFailure(ctx, chatId, messageId, error);
+    step,
+    telegram_error_code: info?.code ?? null,
+    telegram_description: info?.description ?? (error ? String(error) : null)
+  };
+  if (error) {
+    console.warn("[bot.create_task.callback_step_failed]", payload);
+    return;
   }
+  console.log("[bot.create_task.callback_step_ok]", payload);
 }
 
 export function buildSourceLink(
@@ -79,19 +63,10 @@ export function extractStartPayload(text: string | undefined): string | null {
 
 export function createBot(
   token: string,
-  taskService: TaskService
+  taskService: TaskService,
+  botUsername: string
 ): Telegraf {
   const bot = new Telegraf(token);
-  let botUsername: string | null = getEnv("BOT_USERNAME") ?? null;
-
-  const getBotUsername = async (): Promise<string | null> => {
-    if (botUsername) {
-      return botUsername;
-    }
-    const me = await bot.telegram.getMe();
-    botUsername = me.username ?? null;
-    return botUsername;
-  };
 
   bot.start(async (ctx) => {
     if (ctx.chat.type !== "private") {
@@ -107,11 +82,11 @@ export function createBot(
       }
 
       if (result.status === "ALREADY_EXISTS") {
-        await ctx.reply("Задача уже существует");
+        await ctx.reply(`Задача уже существует (id: ${result.task.id})`);
         return;
       }
 
-      await ctx.reply("Задача создана");
+      await ctx.reply(`Задача создана (id: ${result.task.id})`);
       return;
     }
 
@@ -177,29 +152,48 @@ export function createBot(
   });
 
   bot.action(/^create_task:(.+)$/, async (ctx) => {
+    const tokenForTask = ctx.match[1];
+    const deepLink = `https://t.me/${botUsername}?start=${tokenForTask}`;
+
     const callbackMessage = "message" in ctx.callbackQuery ? ctx.callbackQuery.message : undefined;
     const callbackChat =
       callbackMessage && "chat" in callbackMessage ? callbackMessage.chat : undefined;
     const callbackMessageId =
       callbackMessage && "message_id" in callbackMessage ? callbackMessage.message_id : undefined;
+    const callbackChatId = callbackChat?.id ?? 0;
+    const callbackMsgId = callbackMessageId ?? 0;
+
+    try {
+      await ctx.answerCbQuery(undefined, { url: deepLink });
+      logCallbackStep(ctx, "answerCbQuery_url", callbackChatId, callbackMsgId);
+    } catch (error: unknown) {
+      logCallbackStep(ctx, "answerCbQuery_url", callbackChatId, callbackMsgId, error);
+      try {
+        await ctx.answerCbQuery("Opening bot...");
+        logCallbackStep(ctx, "answerCbQuery_ack", callbackChatId, callbackMsgId);
+      } catch (ackError: unknown) {
+        logCallbackStep(ctx, "answerCbQuery_ack", callbackChatId, callbackMsgId, ackError);
+      }
+      try {
+        await ctx.telegram.sendMessage(ctx.from.id, `Open bot: ${deepLink}`);
+        logCallbackStep(ctx, "dm_fallback", callbackChatId, callbackMsgId);
+      } catch (dmError: unknown) {
+        logCallbackStep(ctx, "dm_fallback", callbackChatId, callbackMsgId, dmError);
+      }
+    }
+
     if (
       callbackChat &&
       callbackMessageId &&
       (callbackChat.type === "group" || callbackChat.type === "supergroup")
     ) {
-      await deleteTechnicalMessage(ctx, callbackChat.id, callbackMessageId);
+      try {
+        await ctx.deleteMessage();
+        logCallbackStep(ctx, "deleteMessage", callbackChat.id, callbackMessageId);
+      } catch (deleteError: unknown) {
+        logCallbackStep(ctx, "deleteMessage", callbackChat.id, callbackMessageId, deleteError);
+      }
     }
-
-    const tokenForTask = ctx.match[1];
-    const username = await getBotUsername();
-    if (!username) {
-      await ctx.answerCbQuery("Ошибка");
-      return;
-    }
-
-    await ctx.answerCbQuery(undefined, {
-      url: `https://t.me/${username}?start=${tokenForTask}`
-    });
   });
 
   return bot;
