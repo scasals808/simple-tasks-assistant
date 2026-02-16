@@ -17,8 +17,7 @@
     "tg:commands:set": "tsx scripts/telegram-commands.ts set",
     "tg:commands:get": "tsx scripts/telegram-commands.ts get",
     "tg:commands:delete": "tsx scripts/telegram-commands.ts delete",
-    "start": "tsx src/main.ts",
-    "start:render": "pnpm prisma:migrate:deploy && pnpm start",
+    "start": "node scripts/start-prod.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
