@@ -716,13 +716,13 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
       ctx,
       ru.returnToWork.confirmPrompt,
       Markup.inlineKeyboard([
-        [Markup.button.callback(ru.buttons.returnToWorkConfirm, `confirm:task_return_work:${taskId}:${nonce}`)],
-        [Markup.button.callback(ru.buttons.cancel, `cancel:task_return_work:${taskId}:${nonce}`)]
+        [Markup.button.callback(ru.buttons.returnToWorkConfirm, `cf:rw:${taskId}:${nonce}`)],
+        [Markup.button.callback(ru.buttons.cancel, `cx:rw:${taskId}:${nonce}`)]
       ]).reply_markup
     );
   });
 
-  bot.action(/^confirm:task_return_work:([^:]+):([^:]+)$/, async (ctx) => {
+  bot.action(/^cf:rw:([^:]+):([^:]+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     const nonce = ctx.match[2];
     await ctx.answerCbQuery();
@@ -775,7 +775,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     await ctx.reply(ru.returnToWork.taskNotFound);
   });
 
-  bot.action(/^cancel:task_return_work:([^:]+):([^:]+)$/, async (ctx) => {
+  bot.action(/^cx:rw:([^:]+):([^:]+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     await ctx.answerCbQuery(ru.confirm.canceled);
     const viewerUserId = String(ctx.from.id);
