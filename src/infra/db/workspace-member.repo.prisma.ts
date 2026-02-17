@@ -10,6 +10,9 @@ function mapWorkspaceMember(row: {
   workspaceId: string;
   userId: string;
   role: string;
+  tgFirstName: string | null;
+  tgLastName: string | null;
+  tgUsername: string | null;
   joinedAt: Date;
   lastSeenAt: Date;
 }): WorkspaceMember {
@@ -18,6 +21,9 @@ function mapWorkspaceMember(row: {
     workspaceId: row.workspaceId,
     userId: row.userId,
     role: row.role as WorkspaceMemberRole,
+    tgFirstName: row.tgFirstName,
+    tgLastName: row.tgLastName,
+    tgUsername: row.tgUsername,
     joinedAt: row.joinedAt,
     lastSeenAt: row.lastSeenAt
   };
@@ -28,7 +34,12 @@ export class WorkspaceMemberRepoPrisma implements WorkspaceMemberRepo {
     workspaceId: string,
     userId: string,
     role: WorkspaceMemberRole,
-    lastSeenAt: Date
+    lastSeenAt: Date,
+    profile?: {
+      tgFirstName?: string | null;
+      tgLastName?: string | null;
+      tgUsername?: string | null;
+    }
   ): Promise<WorkspaceMember> {
     const row = await prisma.workspaceMember.upsert({
       where: {
@@ -41,11 +52,17 @@ export class WorkspaceMemberRepoPrisma implements WorkspaceMemberRepo {
         workspaceId,
         userId,
         role,
+        tgFirstName: profile?.tgFirstName ?? null,
+        tgLastName: profile?.tgLastName ?? null,
+        tgUsername: profile?.tgUsername ?? null,
         joinedAt: lastSeenAt,
         lastSeenAt
       },
       update: {
         role,
+        tgFirstName: profile?.tgFirstName ?? null,
+        tgLastName: profile?.tgLastName ?? null,
+        tgUsername: profile?.tgUsername ?? null,
         lastSeenAt
       }
     });

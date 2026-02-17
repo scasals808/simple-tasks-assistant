@@ -9,7 +9,7 @@ import { logDmCreateTask, logGroupTask, logStep, logTaskList } from "./logging.j
 export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
   async function handleTaskList(
     ctx: {
-      from: { id: number };
+      from: { id: number; first_name?: string; last_name?: string; username?: string };
       reply(text: string, extra?: unknown): Promise<unknown>;
     },
     kind: "assigned" | "created"
@@ -30,6 +30,11 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
         await ctx.reply(ru.taskList.joinTeamFirst);
         return;
       }
+      await deps.workspaceMemberService.touchLatestMembershipProfile(userId, {
+        tgFirstName: ctx.from.first_name ?? null,
+        tgLastName: ctx.from.last_name ?? null,
+        tgUsername: ctx.from.username ?? null
+      });
 
       const result =
         kind === "assigned"
@@ -88,7 +93,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
 
   async function handleDmCreateTask(ctx: {
     chat: { type: string };
-    from: { id: number };
+    from: { id: number; first_name?: string; last_name?: string; username?: string };
     reply(text: string, extra?: unknown): Promise<unknown>;
   }): Promise<void> {
     if (ctx.chat.type !== "private") {
@@ -107,6 +112,11 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
       await ctx.reply(ru.dmTask.notInWorkspace);
       return;
     }
+    await deps.workspaceMemberService.touchLatestMembershipProfile(userId, {
+      tgFirstName: ctx.from.first_name ?? null,
+      tgLastName: ctx.from.last_name ?? null,
+      tgUsername: ctx.from.username ?? null
+    });
     const draft = await deps.taskService.startDmDraft({
       workspaceId,
       creatorUserId: userId
@@ -196,7 +206,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
 
   bot.command("task", async (ctx) => {
     const message = ctx.message as {
-      from?: { id?: number };
+      from?: { id?: number; first_name?: string; last_name?: string; username?: string };
       chat?: { id?: number; username?: string; type?: string };
       reply_to_message?: {
         message_id?: number;
@@ -226,10 +236,29 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     });
 
     try {
+      const ensured = await deps.workspaceService.ensureWorkspaceForChatWithResult(
+        chatId,
+        message.chat.username
+      );
+      if (ensured.result === "created") {
+        await deps.workspaceAdminService.setOwner(ensured.workspace.id, userId, false);
+        await deps.workspaceMemberService.upsertOwnerMembership(ensured.workspace.id, userId, {
+          tgFirstName: message.from.first_name ?? null,
+          tgLastName: message.from.last_name ?? null,
+          tgUsername: message.from.username ?? null
+        });
+      } else {
+        await deps.workspaceMemberService.upsertMemberRole(ensured.workspace.id, userId, {
+          tgFirstName: message.from.first_name ?? null,
+          tgLastName: message.from.last_name ?? null,
+          tgUsername: message.from.username ?? null
+        });
+      }
+
       const tokenForTask = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
       const draftResult = await deps.taskService.createOrReuseGroupDraft({
         token: tokenForTask,
-        workspaceId: (await deps.workspaceService.findWorkspaceByChatId(chatId))?.id ?? null,
+        workspaceId: ensured.workspace.id,
         sourceChatId: chatId,
         sourceMessageId,
         sourceText: message.reply_to_message.text ?? message.reply_to_message.caption ?? "",

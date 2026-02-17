@@ -24,6 +24,9 @@ describe("WorkspaceMemberRepoPrisma", () => {
       workspaceId: "ws-1",
       userId: "u-1",
       role: "MEMBER",
+      tgFirstName: null,
+      tgLastName: null,
+      tgUsername: null,
       joinedAt: now,
       lastSeenAt: now
     });
@@ -42,11 +45,17 @@ describe("WorkspaceMemberRepoPrisma", () => {
         workspaceId: "ws-1",
         userId: "u-1",
         role: "MEMBER",
+        tgFirstName: null,
+        tgLastName: null,
+        tgUsername: null,
         joinedAt: now,
         lastSeenAt: now
       },
       update: {
         role: "MEMBER",
+        tgFirstName: null,
+        tgLastName: null,
+        tgUsername: null,
         lastSeenAt: now
       }
     });

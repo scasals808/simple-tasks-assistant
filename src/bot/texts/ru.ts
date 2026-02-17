@@ -23,6 +23,10 @@ export const ru = {
     joinedTeam: (titleOrId: string) => `Вы в команде: ${titleOrId}`,
     invalidInvite: "Ссылка-приглашение недействительна или истекла."
   },
+  menu: {
+    onboardingNoMembership:
+      "Вы еще не подключены к команде. Попросите invite-ссылку у владельца команды."
+  },
   common: {
     notImplemented: "Пока не реализовано.",
     taskNotFound: "Задача не найдена."

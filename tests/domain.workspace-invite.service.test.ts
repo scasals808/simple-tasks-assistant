@@ -42,6 +42,9 @@ describe("WorkspaceInviteService.acceptInvite", () => {
         workspaceId: "ws-1",
         userId: "u-1",
         role: "MEMBER",
+        tgFirstName: null,
+        tgLastName: null,
+        tgUsername: null,
         joinedAt: now,
         lastSeenAt: now
       })),
@@ -81,6 +84,9 @@ describe("WorkspaceInviteService.acceptInvite", () => {
         workspaceId: "ws-1",
         userId: "u-1",
         role: "MEMBER",
+        tgFirstName: null,
+        tgLastName: null,
+        tgUsername: null,
         joinedAt: now,
         lastSeenAt: now
       })),
@@ -131,6 +137,9 @@ describe("WorkspaceInviteService.acceptInvite", () => {
       workspaceId: "ws-1",
       userId: "u-1",
       role: "MEMBER" as const,
+      tgFirstName: null,
+      tgLastName: null,
+      tgUsername: null,
       joinedAt: now,
       lastSeenAt: now
     }));
@@ -149,7 +158,7 @@ describe("WorkspaceInviteService.acceptInvite", () => {
 
     const result = await service.acceptInvite("valid-token", "u-1");
 
-    expect(upsertMember).toHaveBeenCalledWith("ws-1", "u-1", "MEMBER", now);
+    expect(upsertMember).toHaveBeenCalledWith("ws-1", "u-1", "MEMBER", now, undefined);
     expect(result).toEqual({
       workspace: {
         id: "ws-1",
@@ -192,6 +201,9 @@ describe("WorkspaceInviteService.acceptInvite", () => {
         workspaceId: "ws-1",
         userId: "u-1",
         role: "MEMBER" as const,
+        tgFirstName: null,
+        tgLastName: null,
+        tgUsername: null,
         joinedAt: firstSeen,
         lastSeenAt: firstSeen
       })
@@ -200,6 +212,9 @@ describe("WorkspaceInviteService.acceptInvite", () => {
         workspaceId: "ws-1",
         userId: "u-1",
         role: "MEMBER" as const,
+        tgFirstName: null,
+        tgLastName: null,
+        tgUsername: null,
         joinedAt: firstSeen,
         lastSeenAt: secondSeen
       });
@@ -222,8 +237,8 @@ describe("WorkspaceInviteService.acceptInvite", () => {
     await service.acceptInvite("valid-token", "u-1");
     await service.acceptInvite("valid-token", "u-1");
 
-    expect(upsertMember).toHaveBeenNthCalledWith(1, "ws-1", "u-1", "MEMBER", firstSeen);
-    expect(upsertMember).toHaveBeenNthCalledWith(2, "ws-1", "u-1", "MEMBER", secondSeen);
+    expect(upsertMember).toHaveBeenNthCalledWith(1, "ws-1", "u-1", "MEMBER", firstSeen, undefined);
+    expect(upsertMember).toHaveBeenNthCalledWith(2, "ws-1", "u-1", "MEMBER", secondSeen, undefined);
   });
 
   it("keeps OWNER role when owner accepts invite", async () => {
@@ -257,6 +272,9 @@ describe("WorkspaceInviteService.acceptInvite", () => {
       workspaceId: "ws-1",
       userId: "owner-1",
       role: "OWNER" as const,
+      tgFirstName: null,
+      tgLastName: null,
+      tgUsername: null,
       joinedAt: now,
       lastSeenAt: now
     }));
@@ -267,6 +285,9 @@ describe("WorkspaceInviteService.acceptInvite", () => {
         workspaceId: "ws-1",
         userId: "owner-1",
         role: "OWNER",
+        tgFirstName: null,
+        tgLastName: null,
+        tgUsername: null,
         joinedAt: now,
         lastSeenAt: now
       })),
@@ -282,6 +303,6 @@ describe("WorkspaceInviteService.acceptInvite", () => {
 
     await service.acceptInvite("valid-token", "owner-1");
 
-    expect(upsertMember).toHaveBeenCalledWith("ws-1", "owner-1", "OWNER", now);
+    expect(upsertMember).toHaveBeenCalledWith("ws-1", "owner-1", "OWNER", now, undefined);
   });
 });

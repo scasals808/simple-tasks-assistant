@@ -75,6 +75,9 @@ model WorkspaceMember {
   workspaceId String
   userId      String
   role        WorkspaceMemberRole
+  tgFirstName String?
+  tgLastName  String?
+  tgUsername  String?
   joinedAt    DateTime
   lastSeenAt  DateTime
 

@@ -11,6 +11,9 @@ describe("WorkspaceMemberService", () => {
       workspaceId: "ws-1",
       userId: "u-1",
       role: "MEMBER" as const,
+      tgFirstName: null,
+      tgLastName: null,
+      tgUsername: null,
       joinedAt: now,
       lastSeenAt: now
     }));
@@ -24,7 +27,7 @@ describe("WorkspaceMemberService", () => {
 
     const result = await service.upsertMemberRole("ws-1", "u-1");
 
-    expect(upsertMember).toHaveBeenCalledWith("ws-1", "u-1", "MEMBER", now);
+    expect(upsertMember).toHaveBeenCalledWith("ws-1", "u-1", "MEMBER", now, undefined);
     expect(result).toMatchObject({
       workspaceId: "ws-1",
       userId: "u-1",
@@ -42,6 +45,9 @@ describe("WorkspaceMemberService", () => {
         workspaceId: "ws-1",
         userId: "u-1",
         role: "MEMBER" as const,
+        tgFirstName: null,
+        tgLastName: null,
+        tgUsername: null,
         joinedAt: firstSeen,
         lastSeenAt: firstSeen
       })
@@ -50,6 +56,9 @@ describe("WorkspaceMemberService", () => {
         workspaceId: "ws-1",
         userId: "u-1",
         role: "MEMBER" as const,
+        tgFirstName: null,
+        tgLastName: null,
+        tgUsername: null,
         joinedAt: firstSeen,
         lastSeenAt: secondSeen
       });
@@ -70,7 +79,7 @@ describe("WorkspaceMemberService", () => {
     expect(first.id).toBe("wm-1");
     expect(second.id).toBe("wm-1");
     expect(second.lastSeenAt).toEqual(secondSeen);
-    expect(upsertMember).toHaveBeenNthCalledWith(1, "ws-1", "u-1", "MEMBER", firstSeen);
-    expect(upsertMember).toHaveBeenNthCalledWith(2, "ws-1", "u-1", "MEMBER", secondSeen);
+    expect(upsertMember).toHaveBeenNthCalledWith(1, "ws-1", "u-1", "MEMBER", firstSeen, undefined);
+    expect(upsertMember).toHaveBeenNthCalledWith(2, "ws-1", "u-1", "MEMBER", secondSeen, undefined);
   });
 });

@@ -5,6 +5,9 @@ export type WorkspaceMember = {
   workspaceId: string;
   userId: string;
   role: WorkspaceMemberRole;
+  tgFirstName: string | null;
+  tgLastName: string | null;
+  tgUsername: string | null;
   joinedAt: Date;
   lastSeenAt: Date;
 };
@@ -14,7 +17,12 @@ export interface WorkspaceMemberRepo {
     workspaceId: string,
     userId: string,
     role: WorkspaceMemberRole,
-    lastSeenAt: Date
+    lastSeenAt: Date,
+    profile?: {
+      tgFirstName?: string | null;
+      tgLastName?: string | null;
+      tgUsername?: string | null;
+    }
   ): Promise<WorkspaceMember>;
   findMember(workspaceId: string, userId: string): Promise<WorkspaceMember | null>;
   listByWorkspace(workspaceId: string): Promise<WorkspaceMember[]>;

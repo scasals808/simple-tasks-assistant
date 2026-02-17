@@ -25,7 +25,15 @@ export class WorkspaceInviteService {
     private readonly workspaceMemberRepo: WorkspaceMemberRepo
   ) {}
 
-  async acceptInvite(token: string, userId: string): Promise<AcceptInviteResult> {
+  async acceptInvite(
+    token: string,
+    userId: string,
+    profile?: {
+      tgFirstName?: string | null;
+      tgLastName?: string | null;
+      tgUsername?: string | null;
+    }
+  ): Promise<AcceptInviteResult> {
     const now = this.clock.now();
     const invite = await this.workspaceInviteRepo.findValidByToken(token, now);
     if (!invite) {
@@ -38,7 +46,13 @@ export class WorkspaceInviteService {
     }
 
     const existingMembership = await this.workspaceMemberRepo.findMember(invite.workspaceId, userId);
-    await this.workspaceMemberRepo.upsertMember(invite.workspaceId, userId, existingMembership?.role ?? "MEMBER", now);
+    await this.workspaceMemberRepo.upsertMember(
+      invite.workspaceId,
+      userId,
+      existingMembership?.role ?? "MEMBER",
+      now,
+      profile
+    );
 
     return {
       workspace: {

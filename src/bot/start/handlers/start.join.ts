@@ -34,7 +34,7 @@ function logStartPayloadError(
 
 export async function handleStartJoin(
   ctx: {
-    from: { id: number };
+    from: { id: number; first_name?: string; last_name?: string; username?: string };
     update?: { update_id?: number };
     reply(text: string): Promise<unknown>;
   },
@@ -42,7 +42,11 @@ export async function handleStartJoin(
   token: string
 ): Promise<void> {
   try {
-    const accepted = await workspaceInviteService.acceptInvite(token, String(ctx.from.id));
+    const accepted = await workspaceInviteService.acceptInvite(token, String(ctx.from.id), {
+      tgFirstName: ctx.from.first_name ?? null,
+      tgLastName: ctx.from.last_name ?? null,
+      tgUsername: ctx.from.username ?? null
+    });
     await ctx.reply(ru.startJoin.joinedTeam(accepted.workspace.title ?? accepted.workspace.id));
   } catch (error: unknown) {
     logStartPayloadError(ctx, token, error);

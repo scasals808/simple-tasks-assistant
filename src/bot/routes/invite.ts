@@ -10,8 +10,28 @@ import {
   selectStartRoute
 } from "../start/start.router.js";
 import type { BotDeps } from "../types.js";
+import { ru } from "../texts/ru.js";
 import { buildMainMenuRows } from "../ui/keyboards.js";
 import { logMenuRender } from "./logging.js";
+
+function renderMemberDisplayName(member: {
+  userId: string;
+  tgFirstName: string | null;
+  tgLastName: string | null;
+  tgUsername: string | null;
+}): string {
+  const fullName = `${member.tgFirstName ?? ""} ${member.tgLastName ?? ""}`.trim();
+  if (fullName && member.tgUsername) {
+    return `${fullName} (@${member.tgUsername})`;
+  }
+  if (fullName) {
+    return fullName;
+  }
+  if (member.tgUsername) {
+    return `@${member.tgUsername}`;
+  }
+  return member.userId;
+}
 
 export function registerInviteRoutes(bot: Telegraf, deps: BotDeps): void {
   bot.start(async (ctx) => {
@@ -24,6 +44,8 @@ export function registerInviteRoutes(bot: Telegraf, deps: BotDeps): void {
     const route = selectStartRoute(parsed);
     if (route === "join" && parsed.type === "join") {
       await handleStartJoin(ctx, deps.workspaceInviteService, parsed.token);
+      const rowsAfterJoin = buildMainMenuRows(ctx.from?.id, deps.adminUserIds);
+      await ctx.reply("Меню", Markup.keyboard(rowsAfterJoin).resize());
       return;
     }
     if (route === "task" && parsed.type === "task") {
@@ -42,7 +64,7 @@ export function registerInviteRoutes(bot: Telegraf, deps: BotDeps): void {
         const members = await deps.workspaceMemberService.listWorkspaceMembers(workspace.id);
         const rows = members.map((member) => [
           Markup.button.callback(
-            `${member.userId} (${member.role})`,
+            renderMemberDisplayName(member),
             `draft_assignee:${draftToken}:${member.userId}`
           )
         ]);
@@ -54,6 +76,17 @@ export function registerInviteRoutes(bot: Telegraf, deps: BotDeps): void {
       });
       return;
     }
+    const workspaceId = await deps.workspaceMemberService.findLatestWorkspaceIdForUser(String(ctx.from.id));
+    if (!workspaceId) {
+      await ctx.reply(ru.menu.onboardingNoMembership);
+      return;
+    }
+    await deps.workspaceMemberService.touchLatestMembershipProfile(String(ctx.from.id), {
+      tgFirstName: ctx.from.first_name ?? null,
+      tgLastName: ctx.from.last_name ?? null,
+      tgUsername: ctx.from.username ?? null
+    });
+
     const rows = buildMainMenuRows(ctx.from?.id, deps.adminUserIds);
     const count = rows.reduce((acc, row) => acc + row.length, 0);
     logMenuRender({

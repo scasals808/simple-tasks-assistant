@@ -29,7 +29,11 @@ describe("start handlers", () => {
       "token-1"
     );
 
-    expect(workspaceInviteService.acceptInvite).toHaveBeenCalledWith("token-1", "42");
+    expect(workspaceInviteService.acceptInvite).toHaveBeenCalledWith("token-1", "42", {
+      tgFirstName: null,
+      tgLastName: null,
+      tgUsername: null
+    });
     expect(reply).toHaveBeenCalledWith("Вы в команде: Alpha Team");
   });
 

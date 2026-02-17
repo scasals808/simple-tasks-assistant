@@ -24,6 +24,7 @@ describe("TaskService.createTask", () => {
         throw new Error("unused");
       }),
       findDraftByToken: vi.fn(async () => null),
+      findPendingDraftBySource: vi.fn(async () => null),
       findTaskBySource: vi.fn(async () => null),
       findByAssigneeUserId: vi.fn(async () => []),
       listAssignedTasks: vi.fn(async () => []),
@@ -106,6 +107,7 @@ describe("TaskService.getMyTasks", () => {
         throw new Error("unused");
       }),
       findDraftByToken: vi.fn(async () => null),
+      findPendingDraftBySource: vi.fn(async () => null),
       findTaskBySource: vi.fn(async () => null),
       findByAssigneeUserId,
       listAssignedTasks: vi.fn(async () => []),
@@ -158,6 +160,7 @@ describe("TaskService list use-cases", () => {
         throw new Error("unused");
       }),
       findDraftByToken: vi.fn(async () => null),
+      findPendingDraftBySource: vi.fn(async () => null),
       findTaskBySource: vi.fn(async () => null),
       findByAssigneeUserId: vi.fn(async () => []),
       listAssignedTasks,
@@ -239,6 +242,7 @@ describe("TaskService list use-cases", () => {
         throw new Error("unused");
       }),
       findDraftByToken: vi.fn(async () => null),
+      findPendingDraftBySource: vi.fn(async () => null),
       findTaskBySource: vi.fn(async () => null),
       findByAssigneeUserId: vi.fn(async () => []),
       listAssignedTasks: vi.fn(async () => []),
@@ -282,6 +286,7 @@ describe("TaskService list use-cases", () => {
         throw new Error("unused");
       }),
       findDraftByToken: vi.fn(async () => null),
+      findPendingDraftBySource: vi.fn(async () => null),
       findTaskBySource: vi.fn(async () => null),
       findByAssigneeUserId: vi.fn(async () => []),
       listAssignedTasks: vi.fn(async () => []),
@@ -342,6 +347,7 @@ describe("TaskService DM draft flow", () => {
       create: vi.fn(async (task) => task),
       createDraft,
       findDraftByToken: vi.fn(async () => null),
+      findPendingDraftBySource: vi.fn(async () => null),
       findTaskBySource: vi.fn(async () => null),
       findByAssigneeUserId: vi.fn(async () => []),
       listAssignedTasks: vi.fn(async () => []),
@@ -409,6 +415,7 @@ describe("TaskService DM draft flow", () => {
         throw new Error("unused");
       }),
       findDraftByToken: vi.fn(async () => null),
+      findPendingDraftBySource: vi.fn(async () => null),
       findTaskBySource: vi.fn(async () => null),
       findByAssigneeUserId: vi.fn(async () => []),
       listAssignedTasks: vi.fn(async () => []),
