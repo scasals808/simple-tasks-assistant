@@ -76,8 +76,7 @@ export class WorkspaceService {
 
   async relinkArchivedChatToOwnerActiveWorkspace(
     chatId: string,
-    userId: string,
-    title?: string
+    userId: string
   ): Promise<
     | { status: "RELINKED"; workspace: Workspace }
     | { status: "NOT_ALLOWED" }

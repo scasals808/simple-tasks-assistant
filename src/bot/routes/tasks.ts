@@ -789,8 +789,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
       if (workspace.status !== "ACTIVE") {
         const relink = await deps.workspaceService.relinkArchivedChatToOwnerActiveWorkspace(
           chatId,
-          userId,
-          message.chat.username
+          userId
         );
 
         if (relink.status === "RELINKED") {
