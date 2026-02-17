@@ -20,6 +20,8 @@ model Task {
   priority        String
   deadlineAt      DateTime?
   status               String
+  closedAt             DateTime?
+  archivedAt           DateTime?
   submittedForReviewAt DateTime?
   lastReturnComment    String?
   lastReturnAt         DateTime?
@@ -35,6 +37,7 @@ model Task {
 
   @@unique([sourceChatId, sourceMessageId])
   @@index([workspaceId])
+  @@index([workspaceId, status, closedAt])
 }
 
 model TaskReviewDraft {

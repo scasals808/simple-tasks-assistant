@@ -156,4 +156,9 @@ export interface TaskRepo {
   }): Promise<TaskReviewDraft>;
   findActiveReturnCommentDraftByActor(actorUserId: string): Promise<TaskReviewDraft | null>;
   closeReviewDraft(draftId: string): Promise<void>;
+  garbageCollectClosedTasks?(
+    workspaceId: string,
+    cutoff: Date,
+    limit: number
+  ): Promise<number>;
 }

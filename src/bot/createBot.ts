@@ -23,6 +23,7 @@ export function createBot(
   allowAdminReset: boolean
 ): Telegraf {
   const bot = new Telegraf(token);
+  const gcLimit = 50;
   const deps: BotDeps = {
     taskService,
     workspaceService,
@@ -33,6 +34,30 @@ export function createBot(
     adminUserIds,
     allowAdminReset
   };
+
+  bot.use(async (ctx, next) => {
+    const userId = typeof ctx.from?.id === "number" ? String(ctx.from.id) : null;
+    if (userId) {
+      void (async () => {
+        let workspaceId: string | null = null;
+        try {
+          workspaceId = await workspaceMemberService.resolveCurrentWorkspaceId(userId);
+          if (!workspaceId) {
+            return;
+          }
+          console.log("[gc] start", { workspaceId, limit: gcLimit });
+          const deleted = await taskService.garbageCollectClosedTasks(workspaceId, gcLimit);
+          console.log("[gc] deleted", { workspaceId, count: deleted });
+        } catch (error: unknown) {
+          console.error("[gc] error", {
+            workspaceId,
+            err: error instanceof Error ? error.message : String(error)
+          });
+        }
+      })();
+    }
+    return next();
+  });
 
   registerInviteRoutes(bot, deps);
   registerTaskRoutes(bot, deps);

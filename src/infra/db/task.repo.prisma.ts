@@ -779,6 +779,8 @@ export class PrismaTaskRepo implements TaskRepo {
           where: { id: taskId },
           data: {
             status: "CLOSED",
+            closedAt: now,
+            archivedAt: now,
             updatedAt: now
           }
         });
@@ -898,6 +900,8 @@ export class PrismaTaskRepo implements TaskRepo {
         where: { id: taskId },
         data: {
           status: "CLOSED",
+          closedAt: now,
+          archivedAt: now,
           updatedAt: now
         }
       });
@@ -999,6 +1003,8 @@ export class PrismaTaskRepo implements TaskRepo {
         where: { id: taskId },
         data: {
           status: "ACTIVE",
+          closedAt: null,
+          archivedAt: null,
           submittedForReviewAt: null,
           lastReturnComment: comment,
           lastReturnAt: now,
@@ -1129,6 +1135,31 @@ export class PrismaTaskRepo implements TaskRepo {
         }
       });
       return { status: "SUCCESS" as const, changed: true, task: mapTask(updatedTask) };
+    });
+  }
+
+  async garbageCollectClosedTasks(workspaceId: string, cutoff: Date, limit: number): Promise<number> {
+    return prisma.$transaction(async (tx) => {
+      const candidates = await tx.task.findMany({
+        where: {
+          workspaceId,
+          status: "CLOSED",
+          archivedAt: { not: null },
+          closedAt: { lt: cutoff }
+        },
+        orderBy: [{ closedAt: "asc" }, { id: "asc" }],
+        select: { id: true },
+        take: limit
+      });
+      if (candidates.length === 0) {
+        return 0;
+      }
+      const deleted = await tx.task.deleteMany({
+        where: {
+          id: { in: candidates.map((row) => row.id) }
+        }
+      });
+      return deleted.count;
     });
   }
 }

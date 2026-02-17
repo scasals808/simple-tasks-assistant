@@ -591,4 +591,12 @@ export class TaskService {
     await this.taskRepo.closeReviewDraft(draft.id);
     return result;
   }
+
+  async garbageCollectClosedTasks(workspaceId: string, limit = 50): Promise<number> {
+    if (!this.taskRepo.garbageCollectClosedTasks) {
+      return 0;
+    }
+    const cutoff = new Date(this.clock.now().getTime() - 90 * 24 * 60 * 60 * 1000);
+    return this.taskRepo.garbageCollectClosedTasks(workspaceId, cutoff, limit);
+  }
 }
