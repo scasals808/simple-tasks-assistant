@@ -738,6 +738,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     const result = await deps.taskService.returnToWork({
       taskId,
       actorUserId: String(ctx.from.id),
+      comment: "",
       nonce
     });
 
@@ -764,20 +765,8 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
       await ctx.reply(ru.returnToWork.success);
       return;
     }
-    if (result.status === "ALREADY_ACTIVE") {
-      await ctx.reply(ru.returnToWork.alreadyActive);
-      return;
-    }
-    if (result.status === "NOT_ASSIGNEE") {
+    if (result.status === "FORBIDDEN") {
       await ctx.reply(ru.returnToWork.notAllowed);
-      return;
-    }
-    if (result.status === "NOT_IN_WORKSPACE") {
-      await ctx.reply(ru.returnToWork.notInWorkspace);
-      return;
-    }
-    if (result.status === "NONCE_EXISTS") {
-      await ctx.reply(ru.returnToWork.nonceExists);
       return;
     }
     await ctx.reply(ru.returnToWork.taskNotFound);

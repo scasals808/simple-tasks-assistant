@@ -23,6 +23,9 @@ function mapTask(row: {
   deadlineAt: Date | null;
   status: string;
   submittedForReviewAt: Date | null;
+  lastReturnComment?: string | null;
+  lastReturnAt?: Date | null;
+  lastReturnByUserId?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }): Task {
@@ -39,6 +42,9 @@ function mapTask(row: {
     deadlineAt: row.deadlineAt,
     status: row.status as Task["status"],
     submittedForReviewAt: row.submittedForReviewAt,
+    lastReturnComment: row.lastReturnComment ?? null,
+    lastReturnAt: row.lastReturnAt ?? null,
+    lastReturnByUserId: row.lastReturnByUserId ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
   };
@@ -128,6 +134,9 @@ export class PrismaTaskRepo implements TaskRepo {
         deadlineAt: task.deadlineAt,
         status: task.status,
         submittedForReviewAt: task.submittedForReviewAt,
+        lastReturnComment: task.lastReturnComment,
+        lastReturnAt: task.lastReturnAt,
+        lastReturnByUserId: task.lastReturnByUserId,
         createdAt: task.createdAt,
         updatedAt: task.updatedAt
       }
@@ -496,7 +505,10 @@ export class PrismaTaskRepo implements TaskRepo {
           priority: draft.priority ?? "P2",
           deadlineAt: draft.deadlineAt,
           status: "ACTIVE",
-          submittedForReviewAt: null
+          submittedForReviewAt: null,
+          lastReturnComment: null,
+          lastReturnAt: null,
+          lastReturnByUserId: null
         }
       });
       return { status: "CREATED", task: mapTask(row) };
@@ -607,25 +619,16 @@ export class PrismaTaskRepo implements TaskRepo {
     });
   }
 
-  async returnToWorkTransactional(
+  async acceptReviewTransactional(
     taskId: string,
     actorUserId: string,
     nonce: string
   ): Promise<
     | { status: "NOT_FOUND" }
-    | { status: "NOT_ASSIGNEE" }
-    | { status: "ALREADY_ACTIVE" }
-    | { status: "NONCE_EXISTS" }
+    | { status: "FORBIDDEN" }
     | { status: "SUCCESS"; task: Task }
   > {
     return await prisma.$transaction(async (tx) => {
-      const existingAction = await tx.taskAction.findUnique({
-        where: { nonce }
-      });
-      if (existingAction) {
-        return { status: "NONCE_EXISTS" as const };
-      }
-
       const lockedRows = await tx.$queryRaw<
         Array<{
           id: string;
@@ -641,6 +644,9 @@ export class PrismaTaskRepo implements TaskRepo {
           deadlineAt: Date | null;
           status: string;
           submittedForReviewAt: Date | null;
+          lastReturnComment: string | null;
+          lastReturnAt: Date | null;
+          lastReturnByUserId: string | null;
           createdAt: Date;
           updatedAt: Date;
         }>
@@ -659,6 +665,9 @@ export class PrismaTaskRepo implements TaskRepo {
           t."deadlineAt",
           t."status",
           t."submittedForReviewAt",
+          t."lastReturnComment",
+          t."lastReturnAt",
+          t."lastReturnByUserId",
           t."createdAt",
           t."updatedAt"
         FROM "Task" t
@@ -669,14 +678,126 @@ export class PrismaTaskRepo implements TaskRepo {
       if (!task) {
         return { status: "NOT_FOUND" as const };
       }
-      if (task.assigneeUserId !== actorUserId) {
-        return { status: "NOT_ASSIGNEE" as const };
+      if (!task.workspaceId) {
+        return { status: "FORBIDDEN" as const };
       }
-      if (task.status === "ACTIVE") {
-        return { status: "ALREADY_ACTIVE" as const };
+      const workspace = await tx.workspace.findUnique({
+        where: { id: task.workspaceId },
+        select: { ownerUserId: true }
+      });
+      if (!workspace?.ownerUserId || workspace.ownerUserId !== actorUserId) {
+        return { status: "FORBIDDEN" as const };
+      }
+
+      const existingAction = await tx.taskAction.findUnique({
+        where: { nonce }
+      });
+      if (existingAction) {
+        return { status: "SUCCESS" as const, task: mapTask(task) };
       }
       if (task.status !== "ON_REVIEW") {
+        return { status: "SUCCESS" as const, task: mapTask(task) };
+      }
+
+      await tx.taskAction.create({
+        data: {
+          taskId,
+          actorUserId,
+          type: "ACCEPT_REVIEW",
+          nonce
+        }
+      });
+      const now = new Date();
+      const updatedTask = await tx.task.update({
+        where: { id: taskId },
+        data: {
+          status: "CLOSED",
+          updatedAt: now
+        }
+      });
+      return { status: "SUCCESS" as const, task: mapTask(updatedTask) };
+    });
+  }
+
+  async returnToWorkTransactional(
+    taskId: string,
+    actorUserId: string,
+    comment: string,
+    nonce: string
+  ): Promise<
+    | { status: "NOT_FOUND" }
+    | { status: "FORBIDDEN" }
+    | { status: "SUCCESS"; task: Task }
+  > {
+    return await prisma.$transaction(async (tx) => {
+      const lockedRows = await tx.$queryRaw<
+        Array<{
+          id: string;
+          sourceDraftId: string;
+          workspaceId: string | null;
+          sourceChatId: string;
+          sourceMessageId: string;
+          sourceText: string;
+          sourceLink: string | null;
+          creatorUserId: string;
+          assigneeUserId: string;
+          priority: string;
+          deadlineAt: Date | null;
+          status: string;
+          submittedForReviewAt: Date | null;
+          lastReturnComment: string | null;
+          lastReturnAt: Date | null;
+          lastReturnByUserId: string | null;
+          createdAt: Date;
+          updatedAt: Date;
+        }>
+      >(Prisma.sql`
+        SELECT
+          t."id",
+          t."sourceDraftId",
+          t."workspaceId",
+          t."sourceChatId",
+          t."sourceMessageId",
+          t."sourceText",
+          t."sourceLink",
+          t."creatorUserId",
+          t."assigneeUserId",
+          t."priority",
+          t."deadlineAt",
+          t."status",
+          t."submittedForReviewAt",
+          t."lastReturnComment",
+          t."lastReturnAt",
+          t."lastReturnByUserId",
+          t."createdAt",
+          t."updatedAt"
+        FROM "Task" t
+        WHERE t."id" = ${taskId}
+        FOR UPDATE
+      `);
+      const task = lockedRows[0];
+      if (!task) {
         return { status: "NOT_FOUND" as const };
+      }
+      if (!task.workspaceId) {
+        return { status: "FORBIDDEN" as const };
+      }
+      const workspace = await tx.workspace.findUnique({
+        where: { id: task.workspaceId },
+        select: { ownerUserId: true }
+      });
+      if (!workspace?.ownerUserId || workspace.ownerUserId !== actorUserId) {
+        return { status: "FORBIDDEN" as const };
+      }
+
+      const existingAction = await tx.taskAction.findUnique({
+        where: { nonce }
+      });
+      if (existingAction) {
+        return { status: "SUCCESS" as const, task: mapTask(task) };
+      }
+      if (task.status !== "ON_REVIEW") {
+        return { status: "SUCCESS" as const, task: mapTask(task) };
       }
 
       const now = new Date();
@@ -693,6 +814,9 @@ export class PrismaTaskRepo implements TaskRepo {
         data: {
           status: "ACTIVE",
           submittedForReviewAt: null,
+          lastReturnComment: comment,
+          lastReturnAt: now,
+          lastReturnByUserId: actorUserId,
           updatedAt: now
         }
       });

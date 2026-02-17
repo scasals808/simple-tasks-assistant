@@ -15,6 +15,9 @@ export type Task = {
   deadlineAt: Date | null;
   status: TaskStatus;
   submittedForReviewAt: Date | null;
+  lastReturnComment: string | null;
+  lastReturnAt: Date | null;
+  lastReturnByUserId: string | null;
   createdAt: Date;
   updatedAt: Date;
 };

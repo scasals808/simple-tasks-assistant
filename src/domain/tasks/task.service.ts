@@ -140,6 +140,9 @@ export class TaskService {
       deadlineAt: input.deadlineAt,
       status: "ACTIVE",
       submittedForReviewAt: null,
+      lastReturnComment: null,
+      lastReturnAt: null,
+      lastReturnByUserId: null,
       createdAt: now,
       updatedAt: now
     };
@@ -421,41 +424,34 @@ export class TaskService {
     return result;
   }
 
-  async returnToWork(input: {
+  async acceptReview(input: {
     taskId: string;
     actorUserId: string;
     nonce: string;
   }): Promise<
     | { status: "NOT_FOUND" }
-    | { status: "NOT_IN_WORKSPACE" }
-    | { status: "NOT_ASSIGNEE" }
-    | { status: "ALREADY_ACTIVE" }
-    | { status: "NONCE_EXISTS" }
+    | { status: "FORBIDDEN" }
     | { status: "SUCCESS"; task: Task }
   > {
-    const existingAction = await this.taskActionRepo.findByNonce(input.nonce);
-    if (existingAction) {
-      return { status: "NONCE_EXISTS" };
-    }
+    return this.taskRepo.acceptReviewTransactional(input.taskId, input.actorUserId, input.nonce);
+  }
 
+  async returnToWork(input: {
+    taskId: string;
+    actorUserId: string;
+    comment: string;
+    nonce: string;
+  }): Promise<
+    | { status: "NOT_FOUND" }
+    | { status: "FORBIDDEN" }
+    | { status: "SUCCESS"; task: Task }
+  > {
     const result = await this.taskRepo.returnToWorkTransactional(
       input.taskId,
       input.actorUserId,
+      input.comment,
       input.nonce
     );
-
-    if (result.status === "SUCCESS") {
-      if (result.task.workspaceId) {
-        const membership = await this.workspaceMemberRepo.findMember(
-          result.task.workspaceId,
-          input.actorUserId
-        );
-        if (!membership) {
-          return { status: "NOT_IN_WORKSPACE" };
-        }
-      }
-    }
-
     return result;
   }
 }

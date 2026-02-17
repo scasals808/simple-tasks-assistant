@@ -21,6 +21,9 @@ model Task {
   deadlineAt      DateTime?
   status               String
   submittedForReviewAt DateTime?
+  lastReturnComment    String?
+  lastReturnAt         DateTime?
+  lastReturnByUserId   String?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
@@ -49,6 +52,7 @@ model TaskAction {
 
 enum TaskActionType {
   SUBMIT_FOR_REVIEW
+  ACCEPT_REVIEW
   RETURN_TO_WORK
 }
 

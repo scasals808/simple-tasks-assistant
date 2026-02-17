@@ -96,15 +96,24 @@ export interface TaskRepo {
     | { status: "SUCCESS"; task: Task }
   >;
 
-  returnToWorkTransactional(
+  acceptReviewTransactional(
     taskId: string,
     actorUserId: string,
     nonce: string
   ): Promise<
     | { status: "NOT_FOUND" }
-    | { status: "NOT_ASSIGNEE" }
-    | { status: "ALREADY_ACTIVE" }
-    | { status: "NONCE_EXISTS" }
+    | { status: "FORBIDDEN" }
+    | { status: "SUCCESS"; task: Task }
+  >;
+
+  returnToWorkTransactional(
+    taskId: string,
+    actorUserId: string,
+    comment: string,
+    nonce: string
+  ): Promise<
+    | { status: "NOT_FOUND" }
+    | { status: "FORBIDDEN" }
     | { status: "SUCCESS"; task: Task }
   >;
 }
