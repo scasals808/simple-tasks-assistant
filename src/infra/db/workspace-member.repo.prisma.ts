@@ -102,7 +102,7 @@ export class WorkspaceMemberRepoPrisma implements WorkspaceMemberRepo {
 
   async listByWorkspace(workspaceId: string): Promise<WorkspaceMember[]> {
     const rows = await prisma.workspaceMember.findMany({
-      where: { workspaceId, status: "ACTIVE" },
+      where: { workspaceId, status: "ACTIVE", workspace: { status: "ACTIVE" } },
       orderBy: [{ role: "asc" }, { joinedAt: "asc" }]
     });
     return rows.map(mapWorkspaceMember);
@@ -110,7 +110,7 @@ export class WorkspaceMemberRepoPrisma implements WorkspaceMemberRepo {
 
   async findLatestWorkspaceIdByUser(userId: string): Promise<string | null> {
     const row = await prisma.workspaceMember.findFirst({
-      where: { userId, status: "ACTIVE" },
+      where: { userId, status: "ACTIVE", workspace: { status: "ACTIVE" } },
       orderBy: [{ lastSeenAt: "desc" }, { joinedAt: "desc" }]
     });
     return row?.workspaceId ?? null;
@@ -121,7 +121,8 @@ export class WorkspaceMemberRepoPrisma implements WorkspaceMemberRepo {
       where: {
         workspaceId,
         userId,
-        status: "ACTIVE"
+        status: "ACTIVE",
+        workspace: { status: "ACTIVE" }
       }
     });
     return row ? mapWorkspaceMember(row) : null;

@@ -13,12 +13,33 @@ export class WorkspaceService {
   constructor(private readonly workspaceRepo: WorkspaceRepo) {}
 
   async ensureWorkspaceForUser(userId: string): Promise<Workspace> {
-    const personalChatId = `owner:${userId}`;
-    const workspace = await this.workspaceRepo.ensureByChatId(personalChatId);
-    if (workspace.ownerUserId === userId) {
+    const activeOwned = await this.workspaceRepo.findActiveByOwnerUserId(userId);
+    if (activeOwned) {
+      return activeOwned;
+    }
+    const chatId = `owner:${userId}:${Date.now().toString(36)}`;
+    const workspace = await this.workspaceRepo.createManual(chatId);
+    if (workspace.ownerUserId === userId && workspace.status === "ACTIVE") {
       return workspace;
     }
     return this.workspaceRepo.updateOwner(workspace.id, userId);
+  }
+
+  async closeWorkspace(ownerUserId: string): Promise<
+    | { status: "NOT_FOUND" }
+    | { status: "ALREADY_CLOSED" }
+    | { status: "CLOSED"; changed: boolean; workspace: Workspace }
+  > {
+    const activeOwned = await this.workspaceRepo.findActiveByOwnerUserId(ownerUserId);
+    if (!activeOwned) {
+      const latestOwned = await this.workspaceRepo.findLatestByOwnerUserId(ownerUserId);
+      if (latestOwned?.status === "ARCHIVED") {
+        return { status: "ALREADY_CLOSED" };
+      }
+      return { status: "NOT_FOUND" };
+    }
+    const workspace = await this.workspaceRepo.closeWorkspace(activeOwned.id);
+    return { status: "CLOSED", changed: true, workspace };
   }
 
   async findWorkspaceById(id: string): Promise<Workspace | null> {

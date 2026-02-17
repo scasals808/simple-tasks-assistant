@@ -105,6 +105,7 @@ model Workspace {
   chatId         String   @unique
   title          String?
   ownerUserId    String?
+  status         WorkspaceStatus @default(ACTIVE)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -112,6 +113,13 @@ model Workspace {
   drafts  TaskDraft[]
   members WorkspaceMember[]
   invites WorkspaceInvite[]
+
+  @@index([status])
+}
+
+enum WorkspaceStatus {
+  ACTIVE
+  ARCHIVED
 }
 
 model WorkspaceMember {

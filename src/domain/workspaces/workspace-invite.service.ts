@@ -50,6 +50,9 @@ export class WorkspaceInviteService {
     if (!workspace) {
       throw new WorkspaceInviteError("Workspace not found");
     }
+    if (workspace.status !== "ACTIVE") {
+      throw new WorkspaceInviteError("Invite is invalid or expired");
+    }
 
     const existingMembership = await this.workspaceMemberRepo.findMember(invite.workspaceId, userId);
     await this.workspaceMemberRepo.upsertMember(

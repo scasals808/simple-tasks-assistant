@@ -10,6 +10,7 @@ describe("WorkspaceService.ensureWorkspaceForChat", () => {
       chatId: "chat-1",
       title: "Team Chat",
       ownerUserId: null,
+      status: "ACTIVE" as const,
       createdAt: new Date("2026-02-16T00:00:00.000Z"),
       updatedAt: new Date("2026-02-16T00:00:00.000Z")
     };
@@ -18,14 +19,20 @@ describe("WorkspaceService.ensureWorkspaceForChat", () => {
     const findById = vi.fn(async () => expected);
     const createManual = vi.fn(async () => expected);
     const findLatest = vi.fn(async () => expected);
+    const findActiveByOwnerUserId = vi.fn(async () => expected);
+    const findLatestByOwnerUserId = vi.fn(async () => expected);
     const updateOwner = vi.fn(async () => expected);
+    const closeWorkspace = vi.fn(async () => ({ ...expected, status: "ARCHIVED" as const }));
     const repo: WorkspaceRepo = {
       ensureByChatId,
       findByChatId,
       findById,
       createManual,
       findLatest,
-      updateOwner
+      findActiveByOwnerUserId,
+      findLatestByOwnerUserId,
+      updateOwner,
+      closeWorkspace
     };
     const service = new WorkspaceService(repo);
 
@@ -41,6 +48,7 @@ describe("WorkspaceService.ensureWorkspaceForChat", () => {
       chatId: "-1001",
       title: "Team Chat",
       ownerUserId: null,
+      status: "ACTIVE" as const,
       createdAt: new Date("2026-02-16T00:00:00.000Z"),
       updatedAt: new Date("2026-02-16T00:00:00.000Z")
     };
@@ -55,14 +63,20 @@ describe("WorkspaceService.ensureWorkspaceForChat", () => {
     const findById = vi.fn(async () => existing);
     const createManual = vi.fn(async () => existing);
     const findLatest = vi.fn(async () => existing);
+    const findActiveByOwnerUserId = vi.fn(async () => existing);
+    const findLatestByOwnerUserId = vi.fn(async () => existing);
     const updateOwner = vi.fn(async () => existing);
+    const closeWorkspace = vi.fn(async () => ({ ...existing, status: "ARCHIVED" as const }));
     const repo: WorkspaceRepo = {
       ensureByChatId,
       findByChatId,
       findById,
       createManual,
       findLatest,
-      updateOwner
+      findActiveByOwnerUserId,
+      findLatestByOwnerUserId,
+      updateOwner,
+      closeWorkspace
     };
     const service = new WorkspaceService(repo);
 

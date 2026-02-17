@@ -1,4 +1,4 @@
-import type { Workspace, WorkspaceRepo } from "../../domain/ports/workspace.repo.port.js";
+import type { Workspace, WorkspaceRepo, WorkspaceStatus } from "../../domain/ports/workspace.repo.port.js";
 import { prisma } from "./prisma.js";
 
 function mapWorkspace(row: {
@@ -6,6 +6,7 @@ function mapWorkspace(row: {
   chatId: string;
   title: string | null;
   ownerUserId: string | null;
+  status: string;
   createdAt: Date;
   updatedAt: Date;
 }): Workspace {
@@ -14,6 +15,7 @@ function mapWorkspace(row: {
     chatId: row.chatId,
     title: row.title,
     ownerUserId: row.ownerUserId,
+    status: row.status as WorkspaceStatus,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
   };
@@ -25,7 +27,8 @@ export class WorkspaceRepoPrisma implements WorkspaceRepo {
       where: { chatId },
       create: {
         chatId,
-        title: title ?? null
+        title: title ?? null,
+        status: "ACTIVE"
       },
       update: title ? { title } : {}
     });
@@ -65,11 +68,48 @@ export class WorkspaceRepoPrisma implements WorkspaceRepo {
     return row ? mapWorkspace(row) : null;
   }
 
+  async findActiveByOwnerUserId(ownerUserId: string): Promise<Workspace | null> {
+    const row = await prisma.workspace.findFirst({
+      where: {
+        ownerUserId,
+        status: "ACTIVE"
+      },
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+    return row ? mapWorkspace(row) : null;
+  }
+
+  async findLatestByOwnerUserId(ownerUserId: string): Promise<Workspace | null> {
+    const row = await prisma.workspace.findFirst({
+      where: { ownerUserId },
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+    return row ? mapWorkspace(row) : null;
+  }
+
   async updateOwner(workspaceId: string, ownerUserId: string | null): Promise<Workspace> {
     const row = await prisma.workspace.update({
       where: { id: workspaceId },
       data: { ownerUserId }
     });
     return mapWorkspace(row);
+  }
+
+  async closeWorkspace(workspaceId: string): Promise<Workspace> {
+    return prisma.$transaction(async (tx) => {
+      const workspace = await tx.workspace.update({
+        where: { id: workspaceId },
+        data: { status: "ARCHIVED" }
+      });
+      await tx.workspaceMember.updateMany({
+        where: { workspaceId, status: "ACTIVE" },
+        data: { status: "REMOVED" }
+      });
+      return mapWorkspace(workspace);
+    });
   }
 }

@@ -24,6 +24,7 @@ describe("WorkspaceRepoPrisma", () => {
       chatId: "chat-1",
       title: "Team Chat",
       ownerUserId: null,
+      status: "ACTIVE",
       createdAt: now,
       updatedAt: now
     });
@@ -33,7 +34,7 @@ describe("WorkspaceRepoPrisma", () => {
 
     expect(prismaMocks.workspaceUpsert).toHaveBeenCalledWith({
       where: { chatId: "chat-1" },
-      create: { chatId: "chat-1", title: "Team Chat" },
+      create: { chatId: "chat-1", title: "Team Chat", status: "ACTIVE" },
       update: { title: "Team Chat" }
     });
     expect(result).toEqual({
@@ -41,6 +42,7 @@ describe("WorkspaceRepoPrisma", () => {
       chatId: "chat-1",
       title: "Team Chat",
       ownerUserId: null,
+      status: "ACTIVE",
       createdAt: now,
       updatedAt: now
     });

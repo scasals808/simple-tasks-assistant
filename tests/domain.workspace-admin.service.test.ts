@@ -13,6 +13,7 @@ function makeWorkspace(overrides: Partial<{ ownerUserId: string | null }> = {}) 
     chatId: "chat-1",
     title: "Team A",
     ownerUserId: null,
+    status: "ACTIVE" as const,
     createdAt: new Date("2026-02-16T00:00:00.000Z"),
     updatedAt: new Date("2026-02-16T00:00:00.000Z"),
     ...overrides
@@ -38,7 +39,10 @@ describe("WorkspaceAdminService", () => {
       findById: vi.fn(async () => makeWorkspace()),
       createManual,
       findLatest: vi.fn(async () => makeWorkspace()),
-      updateOwner: vi.fn(async () => makeWorkspace())
+      findActiveByOwnerUserId: vi.fn(async () => makeWorkspace()),
+      findLatestByOwnerUserId: vi.fn(async () => makeWorkspace()),
+      updateOwner: vi.fn(async () => makeWorkspace()),
+      closeWorkspace: vi.fn(async () => ({ ...makeWorkspace(), status: "ARCHIVED" as const }))
     };
     const inviteRepo: WorkspaceInviteRepo = {
       findValidByToken: vi.fn(async () => null),
@@ -67,7 +71,10 @@ describe("WorkspaceAdminService", () => {
       findById: vi.fn(async () => makeWorkspace()),
       createManual: vi.fn(async () => makeWorkspace()),
       findLatest: vi.fn(async () => makeWorkspace()),
-      updateOwner: vi.fn(async () => makeWorkspace())
+      findActiveByOwnerUserId: vi.fn(async () => makeWorkspace()),
+      findLatestByOwnerUserId: vi.fn(async () => makeWorkspace()),
+      updateOwner: vi.fn(async () => makeWorkspace()),
+      closeWorkspace: vi.fn(async () => ({ ...makeWorkspace(), status: "ARCHIVED" as const }))
     };
     const createInvite = vi.fn(async (_workspaceId, token) => ({
       id: "wi-1",
@@ -95,7 +102,10 @@ describe("WorkspaceAdminService", () => {
       findById: vi.fn(async () => makeWorkspace({ ownerUserId: "admin-1" })),
       createManual: vi.fn(async () => makeWorkspace()),
       findLatest: vi.fn(async () => makeWorkspace()),
-      updateOwner: vi.fn(async () => makeWorkspace({ ownerUserId: "admin-2" }))
+      findActiveByOwnerUserId: vi.fn(async () => makeWorkspace()),
+      findLatestByOwnerUserId: vi.fn(async () => makeWorkspace()),
+      updateOwner: vi.fn(async () => makeWorkspace({ ownerUserId: "admin-2" })),
+      closeWorkspace: vi.fn(async () => ({ ...makeWorkspace(), status: "ARCHIVED" as const }))
     };
     const inviteRepo: WorkspaceInviteRepo = {
       findValidByToken: vi.fn(async () => null),
@@ -122,7 +132,10 @@ describe("WorkspaceAdminService", () => {
       findById: vi.fn(async () => makeWorkspace({ ownerUserId: null })),
       createManual: vi.fn(async () => makeWorkspace()),
       findLatest: vi.fn(async () => makeWorkspace()),
-      updateOwner
+      findActiveByOwnerUserId: vi.fn(async () => makeWorkspace()),
+      findLatestByOwnerUserId: vi.fn(async () => makeWorkspace()),
+      updateOwner,
+      closeWorkspace: vi.fn(async () => ({ ...makeWorkspace(), status: "ARCHIVED" as const }))
     };
     const inviteRepo: WorkspaceInviteRepo = {
       findValidByToken: vi.fn(async () => null),
@@ -150,7 +163,10 @@ describe("WorkspaceAdminService", () => {
       findById: vi.fn(async () => makeWorkspace({ ownerUserId: "admin-1" })),
       createManual: vi.fn(async () => makeWorkspace()),
       findLatest: vi.fn(async () => makeWorkspace()),
-      updateOwner
+      findActiveByOwnerUserId: vi.fn(async () => makeWorkspace()),
+      findLatestByOwnerUserId: vi.fn(async () => makeWorkspace()),
+      updateOwner,
+      closeWorkspace: vi.fn(async () => ({ ...makeWorkspace(), status: "ARCHIVED" as const }))
     };
     const inviteRepo: WorkspaceInviteRepo = {
       findValidByToken: vi.fn(async () => null),
@@ -177,7 +193,10 @@ describe("WorkspaceAdminService", () => {
       findById: vi.fn(async () => null),
       createManual: vi.fn(async () => makeWorkspace()),
       findLatest: vi.fn(async () => makeWorkspace()),
-      updateOwner: vi.fn(async () => makeWorkspace())
+      findActiveByOwnerUserId: vi.fn(async () => makeWorkspace()),
+      findLatestByOwnerUserId: vi.fn(async () => makeWorkspace()),
+      updateOwner: vi.fn(async () => makeWorkspace()),
+      closeWorkspace: vi.fn(async () => ({ ...makeWorkspace(), status: "ARCHIVED" as const }))
     };
     const inviteRepo: WorkspaceInviteRepo = {
       findValidByToken: vi.fn(async () => null),
@@ -201,7 +220,10 @@ describe("WorkspaceAdminService", () => {
       findById: vi.fn(async () => makeWorkspace()),
       createManual: vi.fn(async () => makeWorkspace()),
       findLatest: vi.fn(async () => null),
-      updateOwner: vi.fn(async () => makeWorkspace())
+      findActiveByOwnerUserId: vi.fn(async () => makeWorkspace()),
+      findLatestByOwnerUserId: vi.fn(async () => makeWorkspace()),
+      updateOwner: vi.fn(async () => makeWorkspace()),
+      closeWorkspace: vi.fn(async () => ({ ...makeWorkspace(), status: "ARCHIVED" as const }))
     };
     const inviteRepo: WorkspaceInviteRepo = {
       findValidByToken: vi.fn(async () => null),

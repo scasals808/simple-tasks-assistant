@@ -38,7 +38,8 @@ export function buildMainMenuRows(
   userId: number | undefined,
   adminUserIds: Set<string>,
   showOnReviewButton = false,
-  showMembersButton = false
+  showMembersButton = false,
+  showTeamButton = false
 ): string[][] {
   const isAdminUser = typeof userId === "number" && isAdmin(userId, adminUserIds);
   const rows: string[][] = [["📥 Мне назначено", "✍️ Я создал"], ["➕ Новая задача", "ℹ️ Помощь"]];
@@ -47,6 +48,9 @@ export function buildMainMenuRows(
   }
   if (showMembersButton) {
     rows.push([ru.menu.members]);
+  }
+  if (showTeamButton) {
+    rows.push([ru.menu.team]);
   }
   if (isAdminUser) {
     rows.push(["Admin"]);

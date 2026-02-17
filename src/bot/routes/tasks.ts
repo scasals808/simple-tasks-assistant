@@ -474,8 +474,36 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     await ctx.reply(`${ru.members.header}\n\n${lines.join("\n")}`, Markup.inlineKeyboard(buttons));
   }
 
+  async function handleTeamMenu(ctx: {
+    from: { id: number };
+    reply(text: string, extra?: unknown): Promise<unknown>;
+  }): Promise<void> {
+    const userId = String(ctx.from.id);
+    const workspaceId = await deps.workspaceMemberService.findLatestWorkspaceIdForUser(userId);
+    if (!workspaceId) {
+      await ctx.reply(ru.taskList.joinTeamFirst);
+      return;
+    }
+    if (!(await isWorkspaceOwner(workspaceId, userId))) {
+      await ctx.reply(ru.team.onlyOwner);
+      return;
+    }
+    await ctx.reply(
+      ru.team.header,
+      Markup.inlineKeyboard([[Markup.button.callback(ru.buttons.teamClose, "team:close:ask")]])
+    );
+  }
+
   bot.hears(
-    ["📥 Мне назначено", "✍️ Я создал", "➕ Новая задача", "ℹ️ Помощь", ru.menu.onReview, ru.menu.members],
+    [
+      "📥 Мне назначено",
+      "✍️ Я создал",
+      "➕ Новая задача",
+      "ℹ️ Помощь",
+      ru.menu.onReview,
+      ru.menu.members,
+      ru.menu.team
+    ],
     async (ctx) => {
     if (ctx.chat.type !== "private") {
       return;
@@ -529,6 +557,15 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
       );
       return;
     }
+    if (text === ru.menu.team) {
+      await handleTeamMenu(
+        ctx as unknown as {
+          from: { id: number };
+          reply(text: string, extra?: unknown): Promise<unknown>;
+        }
+      );
+      return;
+    }
     await ctx.reply(ru.common.notImplemented);
   });
 
@@ -562,6 +599,66 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
         from: { id: number };
         reply(text: string, extra?: unknown): Promise<unknown>;
       }
+    );
+  });
+
+  bot.action(/^team:menu$/, async (ctx) => {
+    await ctx.answerCbQuery();
+    await handleTeamMenu(
+      ctx as unknown as {
+        from: { id: number };
+        reply(text: string, extra?: unknown): Promise<unknown>;
+      }
+    );
+  });
+
+  bot.action(/^team:close:ask$/, async (ctx) => {
+    await ctx.answerCbQuery();
+    const userId = String(ctx.from.id);
+    const workspaceId = await deps.workspaceMemberService.findLatestWorkspaceIdForUser(userId);
+    if (!workspaceId || !(await isWorkspaceOwner(workspaceId, userId))) {
+      await ctx.reply(ru.team.onlyOwner);
+      return;
+    }
+    const nonce = createActionNonce();
+    await updateOrReply(
+      ctx,
+      ru.team.closeAsk,
+      Markup.inlineKeyboard([
+        [Markup.button.callback(ru.buttons.teamCloseConfirm, `team:close:confirm:${nonce}`)],
+        [Markup.button.callback(ru.buttons.teamCloseCancel, "team:close:cancel")]
+      ]).reply_markup
+    );
+  });
+
+  bot.action(/^team:close:confirm:([^:]+)$/, async (ctx) => {
+    await ctx.answerCbQuery();
+    const userId = String(ctx.from.id);
+    const result = await deps.workspaceService.closeWorkspace(userId);
+    if (result.status === "NOT_FOUND") {
+      await ctx.reply(ru.taskList.joinTeamFirst);
+      return;
+    }
+    if (result.status === "ALREADY_CLOSED") {
+      await ctx.reply(ru.team.alreadyClosed);
+      return;
+    }
+    await ctx.reply(ru.team.closed, Markup.removeKeyboard());
+    await ctx.reply(
+      ru.onboarding.noWorkspace,
+      Markup.inlineKeyboard([
+        [Markup.button.callback(ru.onboarding.createWorkspace, "onboarding:create_workspace")],
+        [Markup.button.callback(ru.onboarding.howToJoin, "onboarding:how_to_join")]
+      ])
+    );
+  });
+
+  bot.action(/^team:close:cancel$/, async (ctx) => {
+    await ctx.answerCbQuery(ru.confirm.canceled);
+    await updateOrReply(
+      ctx,
+      ru.team.header,
+      Markup.inlineKeyboard([[Markup.button.callback(ru.buttons.teamClose, "team:close:ask")]]).reply_markup
     );
   });
 
@@ -688,6 +785,10 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
         chatId,
         message.chat.username
       );
+      if (ensured.workspace.status !== "ACTIVE") {
+        await ctx.reply(ru.team.archivedNoAccess);
+        return;
+      }
       if (ensured.result === "created") {
         await deps.workspaceAdminService.setOwner(ensured.workspace.id, userId, false);
         await deps.workspaceMemberService.upsertOwnerMembership(ensured.workspace.id, userId, {

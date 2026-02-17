@@ -15,6 +15,7 @@ function makeWorkspace() {
     chatId: "chat-1",
     title: "Team Workspace",
     ownerUserId: null,
+    status: "ACTIVE" as const,
     createdAt: new Date("2026-02-16T00:00:00.000Z"),
     updatedAt: new Date("2026-02-16T00:00:00.000Z")
   };
@@ -35,7 +36,10 @@ describe("WorkspaceInviteService.acceptInvite", () => {
       findById: vi.fn(async () => makeWorkspace()),
       createManual: vi.fn(async () => makeWorkspace()),
       findLatest: vi.fn(async () => makeWorkspace()),
-      updateOwner: vi.fn(async () => makeWorkspace())
+      findActiveByOwnerUserId: vi.fn(async () => makeWorkspace()),
+      findLatestByOwnerUserId: vi.fn(async () => makeWorkspace()),
+      updateOwner: vi.fn(async () => makeWorkspace()),
+      closeWorkspace: vi.fn(async () => ({ ...makeWorkspace(), status: "ARCHIVED" as const }))
     };
     const workspaceMemberRepo: WorkspaceMemberRepo = {
       upsertMember: vi.fn(async () => ({
@@ -77,7 +81,10 @@ describe("WorkspaceInviteService.acceptInvite", () => {
       findById: vi.fn(async () => makeWorkspace()),
       createManual: vi.fn(async () => makeWorkspace()),
       findLatest: vi.fn(async () => makeWorkspace()),
-      updateOwner: vi.fn(async () => makeWorkspace())
+      findActiveByOwnerUserId: vi.fn(async () => makeWorkspace()),
+      findLatestByOwnerUserId: vi.fn(async () => makeWorkspace()),
+      updateOwner: vi.fn(async () => makeWorkspace()),
+      closeWorkspace: vi.fn(async () => ({ ...makeWorkspace(), status: "ARCHIVED" as const }))
     };
     const workspaceMemberRepo: WorkspaceMemberRepo = {
       upsertMember: vi.fn(async () => ({
@@ -131,7 +138,10 @@ describe("WorkspaceInviteService.acceptInvite", () => {
       findById: vi.fn(async () => makeWorkspace()),
       createManual: vi.fn(async () => makeWorkspace()),
       findLatest: vi.fn(async () => makeWorkspace()),
-      updateOwner: vi.fn(async () => makeWorkspace())
+      findActiveByOwnerUserId: vi.fn(async () => makeWorkspace()),
+      findLatestByOwnerUserId: vi.fn(async () => makeWorkspace()),
+      updateOwner: vi.fn(async () => makeWorkspace()),
+      closeWorkspace: vi.fn(async () => ({ ...makeWorkspace(), status: "ARCHIVED" as const }))
     };
     const upsertMember = vi.fn(async () => ({
       id: "wm-1",
@@ -192,7 +202,10 @@ describe("WorkspaceInviteService.acceptInvite", () => {
       findById: vi.fn(async () => makeWorkspace()),
       createManual: vi.fn(async () => makeWorkspace()),
       findLatest: vi.fn(async () => makeWorkspace()),
-      updateOwner: vi.fn(async () => makeWorkspace())
+      findActiveByOwnerUserId: vi.fn(async () => makeWorkspace()),
+      findLatestByOwnerUserId: vi.fn(async () => makeWorkspace()),
+      updateOwner: vi.fn(async () => makeWorkspace()),
+      closeWorkspace: vi.fn(async () => ({ ...makeWorkspace(), status: "ARCHIVED" as const }))
     };
     const upsertMember = vi.fn(async () => ({
       id: "wm-1",
@@ -249,7 +262,10 @@ describe("WorkspaceInviteService.acceptInvite", () => {
       findById: vi.fn(async () => makeWorkspace()),
       createManual: vi.fn(async () => makeWorkspace()),
       findLatest: vi.fn(async () => makeWorkspace()),
-      updateOwner: vi.fn(async () => makeWorkspace())
+      findActiveByOwnerUserId: vi.fn(async () => makeWorkspace()),
+      findLatestByOwnerUserId: vi.fn(async () => makeWorkspace()),
+      updateOwner: vi.fn(async () => makeWorkspace()),
+      closeWorkspace: vi.fn(async () => ({ ...makeWorkspace(), status: "ARCHIVED" as const }))
     };
     const upsertMember = vi
       .fn()
@@ -322,7 +338,10 @@ describe("WorkspaceInviteService.acceptInvite", () => {
       findById: vi.fn(async () => makeWorkspace()),
       createManual: vi.fn(async () => makeWorkspace()),
       findLatest: vi.fn(async () => makeWorkspace()),
-      updateOwner: vi.fn(async () => makeWorkspace())
+      findActiveByOwnerUserId: vi.fn(async () => makeWorkspace()),
+      findLatestByOwnerUserId: vi.fn(async () => makeWorkspace()),
+      updateOwner: vi.fn(async () => makeWorkspace()),
+      closeWorkspace: vi.fn(async () => ({ ...makeWorkspace(), status: "ARCHIVED" as const }))
     };
     const upsertMember = vi.fn(async () => ({
       id: "wm-1",

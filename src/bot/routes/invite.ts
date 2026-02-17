@@ -61,6 +61,7 @@ export function registerInviteRoutes(bot: Telegraf, deps: BotDeps): void {
       ctx.from?.id,
       deps.adminUserIds,
       canSeeOwnerButtons,
+      canSeeOwnerButtons,
       canSeeOwnerButtons
     );
     const count = rows.reduce((acc, row) => acc + row.length, 0);
