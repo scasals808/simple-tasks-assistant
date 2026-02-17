@@ -11,6 +11,11 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
   }
 
+  function createReassignNonce(): string {
+    // Keep callback_data under Telegram 64-byte limit.
+    return `${Date.now().toString(36).slice(-2)}${Math.random().toString(36).slice(2, 5)}`;
+  }
+
   async function updateOrReply(
     ctx: {
       editMessageText(text: string, extra?: { reply_markup?: unknown }): Promise<unknown>;
@@ -1079,7 +1084,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
       await ctx.reply(ru.reassign.invalidAssignee);
       return;
     }
-    const nonce = createActionNonce();
+    const nonce = createReassignNonce();
     await updateOrReply(
       ctx,
       ru.reassign.confirmPrompt(shortenText(task.sourceText, 40), renderMemberDisplayName(assignee)),

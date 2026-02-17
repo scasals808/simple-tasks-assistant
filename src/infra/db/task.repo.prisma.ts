@@ -391,6 +391,7 @@ export class PrismaTaskRepo implements TaskRepo {
       FROM "Task" t
       WHERE t."workspaceId" = ${workspaceId}
         AND t."creatorUserId" = ${viewerUserId}
+        AND t."status" <> 'CLOSED'
       ORDER BY
         CASE t."priority"
           WHEN 'P1' THEN 1
