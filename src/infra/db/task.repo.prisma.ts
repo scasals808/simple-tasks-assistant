@@ -1007,4 +1007,126 @@ export class PrismaTaskRepo implements TaskRepo {
       return { status: "SUCCESS" as const, task: mapTask(updatedTask) };
     });
   }
+
+  async reassignTaskTransactional(
+    taskId: string,
+    actorUserId: string,
+    newAssigneeId: string,
+    nonce: string
+  ): Promise<
+    | { status: "NOT_FOUND" }
+    | { status: "FORBIDDEN" }
+    | { status: "INVALID_ASSIGNEE" }
+    | { status: "TASK_CLOSED" }
+    | { status: "SUCCESS"; changed: boolean; task: Task }
+  > {
+    return await prisma.$transaction(async (tx) => {
+      const lockedRows = await tx.$queryRaw<
+        Array<{
+          id: string;
+          sourceDraftId: string;
+          workspaceId: string | null;
+          sourceChatId: string;
+          sourceMessageId: string;
+          sourceText: string;
+          sourceLink: string | null;
+          creatorUserId: string;
+          assigneeUserId: string;
+          priority: string;
+          deadlineAt: Date | null;
+          status: string;
+          submittedForReviewAt: Date | null;
+          lastReturnComment: string | null;
+          lastReturnAt: Date | null;
+          lastReturnByUserId: string | null;
+          createdAt: Date;
+          updatedAt: Date;
+        }>
+      >(Prisma.sql`
+        SELECT
+          t."id",
+          t."sourceDraftId",
+          t."workspaceId",
+          t."sourceChatId",
+          t."sourceMessageId",
+          t."sourceText",
+          t."sourceLink",
+          t."creatorUserId",
+          t."assigneeUserId",
+          t."priority",
+          t."deadlineAt",
+          t."status",
+          t."submittedForReviewAt",
+          t."lastReturnComment",
+          t."lastReturnAt",
+          t."lastReturnByUserId",
+          t."createdAt",
+          t."updatedAt"
+        FROM "Task" t
+        WHERE t."id" = ${taskId}
+        FOR UPDATE
+      `);
+      const task = lockedRows[0];
+      if (!task) {
+        return { status: "NOT_FOUND" as const };
+      }
+      if (!task.workspaceId) {
+        return { status: "FORBIDDEN" as const };
+      }
+      const workspace = await tx.workspace.findUnique({
+        where: { id: task.workspaceId },
+        select: { ownerUserId: true }
+      });
+      if (!workspace?.ownerUserId || workspace.ownerUserId !== actorUserId) {
+        return { status: "FORBIDDEN" as const };
+      }
+      if (task.status === "CLOSED") {
+        return { status: "TASK_CLOSED" as const };
+      }
+      const newAssignee = await tx.workspaceMember.findFirst({
+        where: {
+          workspaceId: task.workspaceId,
+          userId: newAssigneeId,
+          status: "ACTIVE"
+        }
+      });
+      if (!newAssignee) {
+        return { status: "INVALID_ASSIGNEE" as const };
+      }
+      const existingAction = await tx.taskAction.findUnique({
+        where: { nonce }
+      });
+      if (existingAction) {
+        return { status: "SUCCESS" as const, changed: false, task: mapTask(task) };
+      }
+      if (task.assigneeUserId === newAssigneeId) {
+        await tx.taskAction.create({
+          data: {
+            taskId,
+            actorUserId,
+            type: "REASSIGN",
+            nonce
+          }
+        });
+        return { status: "SUCCESS" as const, changed: false, task: mapTask(task) };
+      }
+      await tx.taskAction.create({
+        data: {
+          taskId,
+          actorUserId,
+          type: "REASSIGN",
+          nonce
+        }
+      });
+      const now = new Date();
+      const updatedTask = await tx.task.update({
+        where: { id: taskId },
+        data: {
+          assigneeUserId: newAssigneeId,
+          updatedAt: now
+        }
+      });
+      return { status: "SUCCESS" as const, changed: true, task: mapTask(updatedTask) };
+    });
+  }
 }

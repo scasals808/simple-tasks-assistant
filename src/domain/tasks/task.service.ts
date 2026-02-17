@@ -494,6 +494,26 @@ export class TaskService {
     return result;
   }
 
+  async reassignTask(input: {
+    taskId: string;
+    actorUserId: string;
+    newAssigneeId: string;
+    nonce: string;
+  }): Promise<
+    | { status: "NOT_FOUND" }
+    | { status: "FORBIDDEN" }
+    | { status: "INVALID_ASSIGNEE" }
+    | { status: "TASK_CLOSED" }
+    | { status: "SUCCESS"; changed: boolean; task: Task }
+  > {
+    return this.taskRepo.reassignTaskTransactional(
+      input.taskId,
+      input.actorUserId,
+      input.newAssigneeId,
+      input.nonce
+    );
+  }
+
   async beginReturnToWorkComment(input: {
     taskId: string;
     actorUserId: string;

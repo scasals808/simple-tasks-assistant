@@ -136,6 +136,18 @@ export interface TaskRepo {
     | { status: "FORBIDDEN" }
     | { status: "SUCCESS"; task: Task }
   >;
+  reassignTaskTransactional(
+    taskId: string,
+    actorUserId: string,
+    newAssigneeId: string,
+    nonce: string
+  ): Promise<
+    | { status: "NOT_FOUND" }
+    | { status: "FORBIDDEN" }
+    | { status: "INVALID_ASSIGNEE" }
+    | { status: "TASK_CLOSED" }
+    | { status: "SUCCESS"; changed: boolean; task: Task }
+  >;
 
   upsertActiveReturnCommentDraft(input: {
     taskId: string;

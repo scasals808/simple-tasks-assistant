@@ -2,7 +2,7 @@ export interface TaskAction {
   id: string;
   taskId: string;
   actorUserId: string;
-  type: "SUBMIT_FOR_REVIEW" | "SELF_CLOSE" | "ACCEPT_REVIEW" | "RETURN_TO_WORK";
+  type: "SUBMIT_FOR_REVIEW" | "SELF_CLOSE" | "ACCEPT_REVIEW" | "RETURN_TO_WORK" | "REASSIGN";
   nonce: string;
   createdAt: Date;
 }
@@ -10,7 +10,7 @@ export interface TaskAction {
 export interface CreateTaskActionInput {
   taskId: string;
   actorUserId: string;
-  type: "SUBMIT_FOR_REVIEW" | "SELF_CLOSE" | "ACCEPT_REVIEW" | "RETURN_TO_WORK";
+  type: "SUBMIT_FOR_REVIEW" | "SELF_CLOSE" | "ACCEPT_REVIEW" | "RETURN_TO_WORK" | "REASSIGN";
   nonce: string;
 }
 
