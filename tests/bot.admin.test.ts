@@ -480,6 +480,6 @@ describe("bot admin handlers", () => {
       reply_markup?: { inline_keyboard?: Array<Array<{ text: string; callback_data: string }>> };
     };
     const labels = (replyPayload.reply_markup?.inline_keyboard ?? []).flat().map((button) => button.text);
-    expect(labels).toEqual(["10", "11"]);
+    expect(labels).toEqual(["id:10", "id:11"]);
   });
 });

@@ -21,16 +21,13 @@ function renderMemberDisplayName(member: {
   tgUsername: string | null;
 }): string {
   const fullName = `${member.tgFirstName ?? ""} ${member.tgLastName ?? ""}`.trim();
-  if (fullName && member.tgUsername) {
-    return `${fullName} (@${member.tgUsername})`;
-  }
   if (fullName) {
     return fullName;
   }
   if (member.tgUsername) {
     return `@${member.tgUsername}`;
   }
-  return member.userId;
+  return `id:${member.userId}`;
 }
 
 export function registerInviteRoutes(bot: Telegraf, deps: BotDeps): void {

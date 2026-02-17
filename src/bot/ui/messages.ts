@@ -1,8 +1,13 @@
+import { ru } from "../texts/ru.js";
+
 export function formatDueDate(value: Date | null): string {
   if (!value) {
-    return "-";
+    return ru.taskList.dueNone;
   }
-  return value.toISOString().slice(0, 10);
+  const day = String(value.getDate()).padStart(2, "0");
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const year = String(value.getFullYear());
+  return `${day}.${month}.${year}`;
 }
 
 export function shortenText(value: string, max = 24): string {
@@ -21,11 +26,24 @@ export function renderTaskListHeader(kind: "assigned" | "created", count: number
 }
 
 export function renderTaskLine(task: {
-  id: string;
   priority: string;
   deadlineAt: Date | null;
   sourceText: string;
   status: string;
-}): string {
-  return `[${task.priority}] due ${formatDueDate(task.deadlineAt)} ${shortenText(task.sourceText)} ${task.status} (${task.id})`;
+}, index: number): string {
+  const statusRu =
+    task.status === "ACTIVE"
+      ? ru.status.active
+      : task.status === "DONE"
+        ? ru.status.done
+        : task.status === "ARCHIVED"
+          ? ru.status.archived
+          : ru.status.unknown;
+  const color = task.priority === "P1" ? "🔴" : task.priority === "P2" ? "🟠" : "🟡";
+  const title = shortenText(task.sourceText, 40);
+  return `${index + 1}) ${color} ${task.priority} • ${title}\n⏰ Срок: ${formatDueDate(task.deadlineAt)} • 📌 Статус: ${statusRu}`;
+}
+
+export function shortTaskTitle(value: string): string {
+  return shortenText(value, 20);
 }

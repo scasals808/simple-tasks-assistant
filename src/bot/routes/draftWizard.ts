@@ -2,6 +2,7 @@ import { Markup, type Telegraf } from "telegraf";
 
 import type { TaskPriority } from "../../domain/tasks/task.types.js";
 import type { BotDeps } from "../types.js";
+import { ru } from "../texts/ru.js";
 import { confirmKeyboard, deadlineKeyboard, priorityKeyboard } from "../ui/keyboards.js";
 import { logStep } from "./logging.js";
 
@@ -24,6 +25,22 @@ function isTaskPriority(value: string): value is TaskPriority {
   return value === "P1" || value === "P2" || value === "P3";
 }
 
+function assigneeLabel(member: {
+  userId: string;
+  tgFirstName: string | null;
+  tgLastName: string | null;
+  tgUsername: string | null;
+}): string {
+  const fullName = `${member.tgFirstName ?? ""} ${member.tgLastName ?? ""}`.trim();
+  if (fullName) {
+    return fullName;
+  }
+  if (member.tgUsername) {
+    return `@${member.tgUsername}`;
+  }
+  return ru.buttons.fallbackAssignee(member.userId);
+}
+
 async function buildAssigneeKeyboardByWorkspace(
   deps: BotDeps,
   fallbackUserId: string,
@@ -32,20 +49,29 @@ async function buildAssigneeKeyboardByWorkspace(
 ): Promise<unknown> {
   if (!workspaceId) {
     return Markup.inlineKeyboard([
-      [Markup.button.callback(fallbackUserId, `draft_assignee:${tokenForTask}:${fallbackUserId}`)]
+      [
+        Markup.button.callback(
+          ru.buttons.fallbackAssignee(fallbackUserId),
+          `draft_assignee:${tokenForTask}:${fallbackUserId}`
+        )
+      ]
     ]);
   }
   const members = await deps.workspaceMemberService.listWorkspaceMembers(workspaceId);
   const rows = members.map((member) => [
-    Markup.button.callback(
-      `${member.userId} (${member.role})`,
-      `draft_assignee:${tokenForTask}:${member.userId}`
-    )
+    Markup.button.callback(assigneeLabel(member), `draft_assignee:${tokenForTask}:${member.userId}`)
   ]);
   return Markup.inlineKeyboard(
     rows.length > 0
       ? rows
-      : [[Markup.button.callback(fallbackUserId, `draft_assignee:${tokenForTask}:${fallbackUserId}`)]]
+      : [
+          [
+            Markup.button.callback(
+              ru.buttons.fallbackAssignee(fallbackUserId),
+              `draft_assignee:${tokenForTask}:${fallbackUserId}`
+            )
+          ]
+        ]
   );
 }
 
@@ -63,13 +89,13 @@ export function registerDraftWizardRoutes(bot: Telegraf, deps: BotDeps): void {
     if (result.status === "ALREADY_EXISTS") {
       await updateOrReply(
         ctx,
-        `Task already exists (id: ${result.task.id})`,
+        ru.startTask.alreadyExists(result.task.id),
         Markup.inlineKeyboard([]).reply_markup
       );
       return;
     }
     if (result.status === "NOT_FOUND") {
-      await updateOrReply(ctx, "Draft not found", Markup.inlineKeyboard([]).reply_markup);
+      await updateOrReply(ctx, ru.startTask.draftNotFound, Markup.inlineKeyboard([]).reply_markup);
       return;
     }
 
@@ -81,7 +107,7 @@ export function registerDraftWizardRoutes(bot: Telegraf, deps: BotDeps): void {
       callbackChatId,
       callbackMsgId
     );
-    await updateOrReply(ctx, "Choose priority", priorityKeyboard(tokenForTask).reply_markup);
+    await updateOrReply(ctx, ru.wizard.choosePriority, priorityKeyboard(tokenForTask).reply_markup);
   });
 
   bot.action(/^draft_priority:([^:]+):([^:]+)$/, async (ctx) => {
@@ -89,7 +115,7 @@ export function registerDraftWizardRoutes(bot: Telegraf, deps: BotDeps): void {
     const priority = ctx.match[2];
     await ctx.answerCbQuery();
     if (!isTaskPriority(priority)) {
-      await updateOrReply(ctx, "Invalid priority", Markup.inlineKeyboard([]).reply_markup);
+      await updateOrReply(ctx, ru.wizard.invalidPriority, Markup.inlineKeyboard([]).reply_markup);
       return;
     }
 
@@ -101,13 +127,13 @@ export function registerDraftWizardRoutes(bot: Telegraf, deps: BotDeps): void {
     if (result.status === "ALREADY_EXISTS") {
       await updateOrReply(
         ctx,
-        `Task already exists (id: ${result.task.id})`,
+        ru.startTask.alreadyExists(result.task.id),
         Markup.inlineKeyboard([]).reply_markup
       );
       return;
     }
     if (result.status === "NOT_FOUND") {
-      await updateOrReply(ctx, "Draft not found", Markup.inlineKeyboard([]).reply_markup);
+      await updateOrReply(ctx, ru.startTask.draftNotFound, Markup.inlineKeyboard([]).reply_markup);
       return;
     }
 
@@ -119,7 +145,7 @@ export function registerDraftWizardRoutes(bot: Telegraf, deps: BotDeps): void {
       callbackChatId,
       callbackMsgId
     );
-    await updateOrReply(ctx, "Choose deadline", deadlineKeyboard(tokenForTask).reply_markup);
+    await updateOrReply(ctx, ru.wizard.chooseDeadline, deadlineKeyboard(tokenForTask).reply_markup);
   });
 
   bot.action(/^draft_deadline:([^:]+):([^:]+)$/, async (ctx) => {
@@ -127,7 +153,7 @@ export function registerDraftWizardRoutes(bot: Telegraf, deps: BotDeps): void {
     const choice = ctx.match[2];
     await ctx.answerCbQuery();
     if (choice !== "today" && choice !== "tomorrow" && choice !== "none" && choice !== "manual") {
-      await updateOrReply(ctx, "Invalid deadline", Markup.inlineKeyboard([]).reply_markup);
+      await updateOrReply(ctx, ru.wizard.invalidDeadline, Markup.inlineKeyboard([]).reply_markup);
       return;
     }
 
@@ -139,13 +165,13 @@ export function registerDraftWizardRoutes(bot: Telegraf, deps: BotDeps): void {
     if (result.status === "ALREADY_EXISTS") {
       await updateOrReply(
         ctx,
-        `Task already exists (id: ${result.task.id})`,
+        ru.startTask.alreadyExists(result.task.id),
         Markup.inlineKeyboard([]).reply_markup
       );
       return;
     }
     if (result.status === "NOT_FOUND") {
-      await updateOrReply(ctx, "Draft not found", Markup.inlineKeyboard([]).reply_markup);
+      await updateOrReply(ctx, ru.startTask.draftNotFound, Markup.inlineKeyboard([]).reply_markup);
       return;
     }
 
@@ -158,12 +184,12 @@ export function registerDraftWizardRoutes(bot: Telegraf, deps: BotDeps): void {
         callbackChatId,
         callbackMsgId
       );
-      await updateOrReply(ctx, "Send deadline date in YYYY-MM-DD", Markup.inlineKeyboard([]).reply_markup);
+      await updateOrReply(ctx, ru.wizard.askDeadlineManual, Markup.inlineKeyboard([]).reply_markup);
       return;
     }
 
     logStep(ctx, "draft_deadline", tokenForTask, "step_confirm", callbackChatId, callbackMsgId);
-    await updateOrReply(ctx, "Confirm task creation", confirmKeyboard(tokenForTask).reply_markup);
+    await updateOrReply(ctx, ru.wizard.confirmCreate, confirmKeyboard(tokenForTask).reply_markup);
   });
 
   bot.action(/^draft_confirm:(.+)$/, async (ctx) => {
@@ -176,13 +202,13 @@ export function registerDraftWizardRoutes(bot: Telegraf, deps: BotDeps): void {
 
     const result = await deps.taskService.finalizeDraft(tokenForTask, String(ctx.from.id));
     if (!result) {
-      await updateOrReply(ctx, "Draft not found", Markup.inlineKeyboard([]).reply_markup);
+      await updateOrReply(ctx, ru.startTask.draftNotFound, Markup.inlineKeyboard([]).reply_markup);
       return;
     }
     if (result.status === "ALREADY_EXISTS") {
       await updateOrReply(
         ctx,
-        `Task already exists (id: ${result.task.id})`,
+        ru.startTask.alreadyExists(result.task.id),
         Markup.inlineKeyboard([]).reply_markup
       );
       return;
@@ -191,7 +217,7 @@ export function registerDraftWizardRoutes(bot: Telegraf, deps: BotDeps): void {
     logStep(ctx, "draft_confirm", tokenForTask, "step_final", callbackChatId, callbackMsgId);
     await updateOrReply(
       ctx,
-      `Task created (id: ${result.task.id})`,
+      ru.wizard.created(result.task.id),
       Markup.inlineKeyboard([]).reply_markup
     );
   });
@@ -217,19 +243,19 @@ export function registerDraftWizardRoutes(bot: Telegraf, deps: BotDeps): void {
           draft.token,
           draft.workspaceId
         );
-        await ctx.reply("Choose assignee", keyboard as never);
+        await ctx.reply(ru.startTask.chooseAssignee, keyboard as never);
         return;
       }
       if (draft.step === "CHOOSE_PRIORITY") {
-        await ctx.reply("Choose priority", priorityKeyboard(draft.token));
+        await ctx.reply(ru.wizard.choosePriority, priorityKeyboard(draft.token));
         return;
       }
       if (draft.step === "CHOOSE_DEADLINE") {
-        await ctx.reply("Choose deadline", deadlineKeyboard(draft.token));
+        await ctx.reply(ru.wizard.chooseDeadline, deadlineKeyboard(draft.token));
         return;
       }
       if (draft.step === "CONFIRM") {
-        await ctx.reply("Confirm task creation", confirmKeyboard(draft.token));
+        await ctx.reply(ru.wizard.confirmCreate, confirmKeyboard(draft.token));
         return;
       }
       return;
@@ -240,10 +266,10 @@ export function registerDraftWizardRoutes(bot: Telegraf, deps: BotDeps): void {
       return;
     }
     if (result.status === "INVALID_DATE") {
-      await ctx.reply("Invalid date. Use YYYY-MM-DD");
+      await ctx.reply(ru.wizard.invalidDate);
       return;
     }
 
-    await ctx.reply("Confirm task creation", confirmKeyboard(result.draft.token));
+    await ctx.reply(ru.wizard.confirmCreate, confirmKeyboard(result.draft.token));
   });
 }

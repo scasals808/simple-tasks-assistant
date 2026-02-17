@@ -1,6 +1,7 @@
 import { Markup } from "telegraf";
 
 import { isAdmin } from "../../config/env.js";
+import { ru } from "../texts/ru.js";
 
 export function priorityKeyboard(token: string) {
   return Markup.inlineKeyboard([
@@ -14,21 +15,21 @@ export function priorityKeyboard(token: string) {
 
 export function deadlineKeyboard(token: string) {
   return Markup.inlineKeyboard([
-    [Markup.button.callback("Today", `draft_deadline:${token}:today`)],
-    [Markup.button.callback("Tomorrow", `draft_deadline:${token}:tomorrow`)],
-    [Markup.button.callback("No deadline", `draft_deadline:${token}:none`)],
-    [Markup.button.callback("Enter date (YYYY-MM-DD)", `draft_deadline:${token}:manual`)]
+    [Markup.button.callback(ru.buttons.deadlineToday, `draft_deadline:${token}:today`)],
+    [Markup.button.callback(ru.buttons.deadlineTomorrow, `draft_deadline:${token}:tomorrow`)],
+    [Markup.button.callback(ru.buttons.deadlineNone, `draft_deadline:${token}:none`)],
+    [Markup.button.callback(ru.buttons.deadlineManual, `draft_deadline:${token}:manual`)]
   ]);
 }
 
 export function confirmKeyboard(token: string) {
-  return Markup.inlineKeyboard([[Markup.button.callback("Create", `draft_confirm:${token}`)]]);
+  return Markup.inlineKeyboard([[Markup.button.callback(ru.buttons.create, `draft_confirm:${token}`)]]);
 }
 
 export function adminMenuKeyboard() {
   return Markup.inlineKeyboard([
-    [Markup.button.callback("Create team", "admin_create_team")],
-    [Markup.button.callback("Generate invite link", "admin_generate_invite")]
+    [Markup.button.callback(ru.buttons.adminCreateTeam, "admin_create_team")],
+    [Markup.button.callback(ru.buttons.adminGenerateInvite, "admin_generate_invite")]
   ]);
 }
 

@@ -3,7 +3,7 @@ import { Markup, type Telegraf } from "telegraf";
 import type { BotDeps } from "../types.js";
 import { ru } from "../texts/ru.js";
 import { buildSourceLink } from "../ui/keyboards.js";
-import { renderTaskLine, renderTaskListHeader } from "../ui/messages.js";
+import { renderTaskLine, renderTaskListHeader, shortTaskTitle } from "../ui/messages.js";
 import { logDmCreateTask, logGroupTask, logStep, logTaskList } from "./logging.js";
 
 export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
@@ -66,9 +66,9 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
         return;
       }
 
-      const body = result.tasks.map((task) => renderTaskLine(task)).join("\n");
+      const body = result.tasks.map((task, index) => renderTaskLine(task, index)).join("\n\n");
       const contextButtons = result.tasks.map((task) => [
-        Markup.button.callback(`Show context (${task.id})`, `task_context:${task.id}`)
+        Markup.button.callback(ru.buttons.context(shortTaskTitle(task.sourceText)), `task_context:${task.id}`)
       ]);
       logTaskList({
         handler: kind === "assigned" ? "list_assigned_tasks" : "list_created_tasks",
@@ -403,6 +403,6 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     }
 
     const fallback = task.sourceText.length > 500 ? `${task.sourceText.slice(0, 500)}...` : task.sourceText;
-    await ctx.reply(fallback || "-");
+    await ctx.reply(`${ru.taskList.contextMissingIntro}\n${fallback || "-"}`);
   });
 }
