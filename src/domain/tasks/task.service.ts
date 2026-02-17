@@ -420,4 +420,42 @@ export class TaskService {
 
     return result;
   }
+
+  async returnToWork(input: {
+    taskId: string;
+    actorUserId: string;
+    nonce: string;
+  }): Promise<
+    | { status: "NOT_FOUND" }
+    | { status: "NOT_IN_WORKSPACE" }
+    | { status: "NOT_ASSIGNEE" }
+    | { status: "ALREADY_ACTIVE" }
+    | { status: "NONCE_EXISTS" }
+    | { status: "SUCCESS"; task: Task }
+  > {
+    const existingAction = await this.taskActionRepo.findByNonce(input.nonce);
+    if (existingAction) {
+      return { status: "NONCE_EXISTS" };
+    }
+
+    const result = await this.taskRepo.returnToWorkTransactional(
+      input.taskId,
+      input.actorUserId,
+      input.nonce
+    );
+
+    if (result.status === "SUCCESS") {
+      if (result.task.workspaceId) {
+        const membership = await this.workspaceMemberRepo.findMember(
+          result.task.workspaceId,
+          input.actorUserId
+        );
+        if (!membership) {
+          return { status: "NOT_IN_WORKSPACE" };
+        }
+      }
+    }
+
+    return result;
+  }
 }

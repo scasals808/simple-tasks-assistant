@@ -606,4 +606,97 @@ export class PrismaTaskRepo implements TaskRepo {
       return { status: "SUCCESS" as const, task: mapTask(updatedTask) };
     });
   }
+
+  async returnToWorkTransactional(
+    taskId: string,
+    actorUserId: string,
+    nonce: string
+  ): Promise<
+    | { status: "NOT_FOUND" }
+    | { status: "NOT_ASSIGNEE" }
+    | { status: "ALREADY_ACTIVE" }
+    | { status: "NONCE_EXISTS" }
+    | { status: "SUCCESS"; task: Task }
+  > {
+    return await prisma.$transaction(async (tx) => {
+      const existingAction = await tx.taskAction.findUnique({
+        where: { nonce }
+      });
+      if (existingAction) {
+        return { status: "NONCE_EXISTS" as const };
+      }
+
+      const lockedRows = await tx.$queryRaw<
+        Array<{
+          id: string;
+          sourceDraftId: string;
+          workspaceId: string | null;
+          sourceChatId: string;
+          sourceMessageId: string;
+          sourceText: string;
+          sourceLink: string | null;
+          creatorUserId: string;
+          assigneeUserId: string;
+          priority: string;
+          deadlineAt: Date | null;
+          status: string;
+          submittedForReviewAt: Date | null;
+          createdAt: Date;
+          updatedAt: Date;
+        }>
+      >(Prisma.sql`
+        SELECT
+          t."id",
+          t."sourceDraftId",
+          t."workspaceId",
+          t."sourceChatId",
+          t."sourceMessageId",
+          t."sourceText",
+          t."sourceLink",
+          t."creatorUserId",
+          t."assigneeUserId",
+          t."priority",
+          t."deadlineAt",
+          t."status",
+          t."submittedForReviewAt",
+          t."createdAt",
+          t."updatedAt"
+        FROM "Task" t
+        WHERE t."id" = ${taskId}
+        FOR UPDATE
+      `);
+      const task = lockedRows[0];
+      if (!task) {
+        return { status: "NOT_FOUND" as const };
+      }
+      if (task.assigneeUserId !== actorUserId) {
+        return { status: "NOT_ASSIGNEE" as const };
+      }
+      if (task.status === "ACTIVE") {
+        return { status: "ALREADY_ACTIVE" as const };
+      }
+      if (task.status !== "ON_REVIEW") {
+        return { status: "NOT_FOUND" as const };
+      }
+
+      const now = new Date();
+      await tx.taskAction.create({
+        data: {
+          taskId,
+          actorUserId,
+          type: "RETURN_TO_WORK",
+          nonce
+        }
+      });
+      const updatedTask = await tx.task.update({
+        where: { id: taskId },
+        data: {
+          status: "ACTIVE",
+          submittedForReviewAt: null,
+          updatedAt: now
+        }
+      });
+      return { status: "SUCCESS" as const, task: mapTask(updatedTask) };
+    });
+  }
 }

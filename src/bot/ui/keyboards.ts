@@ -91,5 +91,8 @@ export function taskActionsKeyboard(
   if (task.assigneeUserId === viewerUserId && task.status === "ACTIVE") {
     row.push(Markup.button.callback(ru.buttons.submitForReview, `task_done:${task.id}:${nonce}`));
   }
+  if (task.assigneeUserId === viewerUserId && task.status === "ON_REVIEW") {
+    row.push(Markup.button.callback(ru.buttons.returnToWork, `task_return_work:${task.id}:${nonce}`));
+  }
   return Markup.inlineKeyboard(row.length > 0 ? [row] : []);
 }

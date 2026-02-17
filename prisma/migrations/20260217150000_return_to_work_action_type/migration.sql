@@ -1,0 +1,7 @@
+DO $$
+BEGIN
+  ALTER TYPE "TaskActionType" ADD VALUE IF NOT EXISTS 'RETURN_TO_WORK';
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END
+$$;

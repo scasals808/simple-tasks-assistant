@@ -95,4 +95,16 @@ export interface TaskRepo {
     | { status: "NONCE_EXISTS" }
     | { status: "SUCCESS"; task: Task }
   >;
+
+  returnToWorkTransactional(
+    taskId: string,
+    actorUserId: string,
+    nonce: string
+  ): Promise<
+    | { status: "NOT_FOUND" }
+    | { status: "NOT_ASSIGNEE" }
+    | { status: "ALREADY_ACTIVE" }
+    | { status: "NONCE_EXISTS" }
+    | { status: "SUCCESS"; task: Task }
+  >;
 }

@@ -49,6 +49,7 @@ model TaskAction {
 
 enum TaskActionType {
   SUBMIT_FOR_REVIEW
+  RETURN_TO_WORK
 }
 
 model TaskDraft {

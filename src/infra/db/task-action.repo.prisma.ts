@@ -17,7 +17,7 @@ function mapTaskAction(row: {
     id: row.id,
     taskId: row.taskId,
     actorUserId: row.actorUserId,
-    type: row.type as 'SUBMIT_FOR_REVIEW',
+    type: row.type as TaskAction["type"],
     nonce: row.nonce,
     createdAt: row.createdAt
   };
