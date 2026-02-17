@@ -3,7 +3,7 @@ import { Markup, type Telegraf } from "telegraf";
 import type { TaskPriority } from "../../domain/tasks/task.types.js";
 import type { BotDeps } from "../types.js";
 import { ru } from "../texts/ru.js";
-import { renderTaskCard } from "../ui/messages.js";
+import { formatDueDate, renderTaskCard, shortenText } from "../ui/messages.js";
 import {
   confirmKeyboard,
   deadlineKeyboard,
@@ -33,6 +33,22 @@ function isTaskPriority(value: string): value is TaskPriority {
 
 function createSubmitNonce(): string {
   return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function creatorLabel(from: {
+  first_name?: string;
+  last_name?: string;
+  username?: string;
+  id: number;
+}): string {
+  const fullName = `${from.first_name ?? ""} ${from.last_name ?? ""}`.trim();
+  if (fullName) {
+    return fullName;
+  }
+  if (from.username) {
+    return `@${from.username}`;
+  }
+  return `id:${from.id}`;
 }
 
 function assigneeLabel(member: {
@@ -86,6 +102,53 @@ async function buildAssigneeKeyboardByWorkspace(
 }
 
 export function registerDraftWizardRoutes(bot: Telegraf, deps: BotDeps): void {
+  async function notifyAssigneeOnCreated(
+    ctx: {
+      from: { id: number; first_name?: string; last_name?: string; username?: string };
+      telegram: { sendMessage(chatId: string, text: string, extra?: unknown): Promise<unknown> };
+    },
+    task: {
+      id: string;
+      sourceText: string;
+      creatorUserId: string;
+      assigneeUserId: string;
+      priority: string;
+      deadlineAt: Date | null;
+    }
+  ): Promise<void> {
+    if (task.assigneeUserId === task.creatorUserId) {
+      return;
+    }
+
+    const title = shortenText(task.sourceText, 64);
+    const text = [
+      ru.assigneeNotification.title(title),
+      ru.assigneeNotification.priority(task.priority),
+      ru.assigneeNotification.deadline(formatDueDate(task.deadlineAt)),
+      ru.assigneeNotification.assignedBy(creatorLabel(ctx.from))
+    ].join("\n");
+
+    const keyboard = Markup.inlineKeyboard([
+      [Markup.button.callback(ru.buttons.openTask, `task_open:${task.id}`)]
+    ]);
+
+    try {
+      await ctx.telegram.sendMessage(task.assigneeUserId, text, keyboard);
+    } catch (error: unknown) {
+      const err = error as { response?: { error_code?: number } };
+      const errorCode = err.response?.error_code ?? null;
+      if (errorCode === 400 || errorCode === 403) {
+        console.warn("[bot.assignee_notify.failed]", {
+          assigneeId: task.assigneeUserId,
+          taskId: task.id,
+          error_code: errorCode
+        });
+        return;
+      }
+      throw error;
+    }
+  }
+
   bot.action(/^draft_assignee:([^:]+):([^:]+)$/, async (ctx) => {
     const tokenForTask = ctx.match[1];
     const assigneeId = ctx.match[2];
@@ -241,6 +304,14 @@ export function registerDraftWizardRoutes(bot: Telegraf, deps: BotDeps): void {
       renderTaskCard(result.task, String(ctx.from.id)),
       replyMarkup
     );
+    await notifyAssigneeOnCreated(ctx, {
+      id: result.task.id,
+      sourceText: result.task.sourceText,
+      creatorUserId: result.task.creatorUserId,
+      assigneeUserId: result.task.assigneeUserId,
+      priority: result.task.priority,
+      deadlineAt: result.task.deadlineAt
+    });
   });
 
   bot.on("text", async (ctx) => {

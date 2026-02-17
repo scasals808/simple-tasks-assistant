@@ -480,23 +480,6 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
       ).reply_markup
     );
 
-    const sourceChatIdNum = Number(task.sourceChatId);
-    const sourceMessageIdNum = Number(task.sourceMessageId);
-    const targetChatId =
-      "chat" in ctx && ctx.chat && "id" in ctx.chat ? ctx.chat.id : ctx.from.id;
-    if (Number.isFinite(sourceChatIdNum) && Number.isFinite(sourceMessageIdNum)) {
-      try {
-        await ctx.telegram.copyMessage(targetChatId, sourceChatIdNum, sourceMessageIdNum);
-        return;
-      } catch (error: unknown) {
-        const err = error as { response?: { error_code?: number } };
-        console.warn("[bot.task_context.copy_failed]", {
-          chat_id: task.sourceChatId,
-          message_id: task.sourceMessageId,
-          error_code: err.response?.error_code ?? null
-        });
-      }
-    }
   });
 
   bot.action(/^task_(?:done|submit_review):([^:]+):([^:]+)$/, async (ctx) => {

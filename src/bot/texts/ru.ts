@@ -75,6 +75,12 @@ export const ru = {
     priority: (priority: string) => `Приоритет: ${priority}`,
     deadline: (deadline: string) => `Срок: ${deadline}`
   },
+  assigneeNotification: {
+    title: (title: string) => `📌 Новая задача: ${title}`,
+    priority: (priority: string) => `⚡ Приоритет: ${priority}`,
+    deadline: (deadline: string) => `⏰ Срок: ${deadline}`,
+    assignedBy: (creator: string) => `👤 Назначил: ${creator}`
+  },
   buttons: {
     context: (title: string) => `📎 Контекст: ${title}`,
     fallbackAssignee: (userId: string) => `id:${userId}`,
