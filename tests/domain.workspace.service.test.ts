@@ -9,7 +9,7 @@ describe("WorkspaceService.ensureWorkspaceForChat", () => {
       id: "ws-1",
       chatId: "chat-1",
       title: "Team Chat",
-      assignerUserId: null,
+      ownerUserId: null,
       createdAt: new Date("2026-02-16T00:00:00.000Z"),
       updatedAt: new Date("2026-02-16T00:00:00.000Z")
     };
@@ -18,14 +18,14 @@ describe("WorkspaceService.ensureWorkspaceForChat", () => {
     const findById = vi.fn(async () => expected);
     const createManual = vi.fn(async () => expected);
     const findLatest = vi.fn(async () => expected);
-    const updateAssigner = vi.fn(async () => expected);
+    const updateOwner = vi.fn(async () => expected);
     const repo: WorkspaceRepo = {
       ensureByChatId,
       findByChatId,
       findById,
       createManual,
       findLatest,
-      updateAssigner
+      updateOwner
     };
     const service = new WorkspaceService(repo);
 
@@ -40,7 +40,7 @@ describe("WorkspaceService.ensureWorkspaceForChat", () => {
       id: "ws-existing",
       chatId: "-1001",
       title: "Team Chat",
-      assignerUserId: null,
+      ownerUserId: null,
       createdAt: new Date("2026-02-16T00:00:00.000Z"),
       updatedAt: new Date("2026-02-16T00:00:00.000Z")
     };
@@ -55,14 +55,14 @@ describe("WorkspaceService.ensureWorkspaceForChat", () => {
     const findById = vi.fn(async () => existing);
     const createManual = vi.fn(async () => existing);
     const findLatest = vi.fn(async () => existing);
-    const updateAssigner = vi.fn(async () => existing);
+    const updateOwner = vi.fn(async () => existing);
     const repo: WorkspaceRepo = {
       ensureByChatId,
       findByChatId,
       findById,
       createManual,
       findLatest,
-      updateAssigner
+      updateOwner
     };
     const service = new WorkspaceService(repo);
 

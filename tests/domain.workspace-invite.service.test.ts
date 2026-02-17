@@ -13,7 +13,7 @@ function makeWorkspace() {
     id: "ws-1",
     chatId: "chat-1",
     title: "Team Workspace",
-    assignerUserId: null,
+    ownerUserId: null,
     createdAt: new Date("2026-02-16T00:00:00.000Z"),
     updatedAt: new Date("2026-02-16T00:00:00.000Z")
   };
@@ -34,7 +34,7 @@ describe("WorkspaceInviteService.acceptInvite", () => {
       findById: vi.fn(async () => makeWorkspace()),
       createManual: vi.fn(async () => makeWorkspace()),
       findLatest: vi.fn(async () => makeWorkspace()),
-      updateAssigner: vi.fn(async () => makeWorkspace())
+      updateOwner: vi.fn(async () => makeWorkspace())
     };
     const workspaceMemberRepo: WorkspaceMemberRepo = {
       upsertMember: vi.fn(async () => ({
@@ -70,7 +70,7 @@ describe("WorkspaceInviteService.acceptInvite", () => {
       findById: vi.fn(async () => makeWorkspace()),
       createManual: vi.fn(async () => makeWorkspace()),
       findLatest: vi.fn(async () => makeWorkspace()),
-      updateAssigner: vi.fn(async () => makeWorkspace())
+      updateOwner: vi.fn(async () => makeWorkspace())
     };
     const workspaceMemberRepo: WorkspaceMemberRepo = {
       upsertMember: vi.fn(async () => ({
@@ -118,7 +118,7 @@ describe("WorkspaceInviteService.acceptInvite", () => {
       findById: vi.fn(async () => makeWorkspace()),
       createManual: vi.fn(async () => makeWorkspace()),
       findLatest: vi.fn(async () => makeWorkspace()),
-      updateAssigner: vi.fn(async () => makeWorkspace())
+      updateOwner: vi.fn(async () => makeWorkspace())
     };
     const upsertMember = vi.fn(async () => ({
       id: "wm-1",
@@ -172,7 +172,7 @@ describe("WorkspaceInviteService.acceptInvite", () => {
       findById: vi.fn(async () => makeWorkspace()),
       createManual: vi.fn(async () => makeWorkspace()),
       findLatest: vi.fn(async () => makeWorkspace()),
-      updateAssigner: vi.fn(async () => makeWorkspace())
+      updateOwner: vi.fn(async () => makeWorkspace())
     };
     const upsertMember = vi
       .fn()

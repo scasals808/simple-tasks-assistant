@@ -48,7 +48,7 @@ Layering rules in code:
 ### 3) Workspace system
 
 - Workspace is tied to a `chatId`.
-- Workspace members are role-based (`ASSIGNER`, `EXECUTOR`).
+- Workspace ownership is tracked via `ownerUserId` and memberships are role-based.
 - Admin operations are gated by env allowlist (`ADMIN_USER_IDS`).
 
 ### 4) Invite system
@@ -62,8 +62,8 @@ Layering rules in code:
 - `Admin` button is rendered only for allowlisted admins.
 - Admin actions include:
   - create team via `/admin_create_team <chatId> [title...]`,
-  - set assigner via `/admin_set_assigner <workspaceId> <userId>`,
-  - optional explicit overwrite via `/admin_replace_assigner <workspaceId> <userId>`,
+  - set owner via `/admin_set_owner <workspaceId> <userId>`,
+  - optional explicit overwrite via `/admin_replace_owner <workspaceId> <userId>`,
   - generate invite link from admin menu button,
   - safe reset via `/admin_reset CONFIRM_DELETE_ALL_TEST_DATA` only when `ALLOW_ADMIN_RESET=true`.
 
@@ -116,10 +116,10 @@ Layering rules in code:
 - `Workspace`
   - unique `chatId`
   - optional `title`
-  - optional `assignerUserId`
+  - optional `ownerUserId`
 - `WorkspaceMember`
   - unique by `(workspaceId, userId)`
-  - role (`ASSIGNER` or `EXECUTOR`)
+  - role (`OWNER` or `MEMBER`) in product terminology
 - `WorkspaceInvite`
   - unique `token`
   - `workspaceId`

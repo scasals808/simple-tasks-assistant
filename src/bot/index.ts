@@ -97,7 +97,7 @@ function adminMenuKeyboard() {
   return Markup.inlineKeyboard([
     [Markup.button.callback("Create team", "admin_create_team")],
     [Markup.button.callback("Generate invite link", "admin_generate_invite")],
-    [Markup.button.callback("Set assigner", "admin_set_assigner")]
+    [Markup.button.callback("Set owner", "admin_set_owner")]
   ]);
 }
 
@@ -366,7 +366,15 @@ export function createBot(
     }
   });
 
-  bot.command("admin_set_assigner", async (ctx) => {
+  async function handleAdminSetOwnerCommand(
+    ctx: {
+      chat: { type: string };
+      from: { id: number };
+      message: { text?: string };
+      reply(text: string): Promise<unknown>;
+    },
+    replace: boolean
+  ): Promise<void> {
     if (ctx.chat.type !== "private") {
       return;
     }
@@ -379,75 +387,87 @@ export function createBot(
     const workspaceId = parts[1];
     const userId = parts[2];
     if (!workspaceId || !userId) {
-      await ctx.reply("Send: /admin_set_assigner <workspaceId> <userId>");
+      await ctx.reply(
+        replace
+          ? "Send: /admin_replace_owner <workspaceId> <userId>"
+          : "Send: /admin_set_owner <workspaceId> <userId>"
+      );
       return;
     }
     try {
-      const result = await workspaceAdminService.setAssigner(workspaceId, userId, false);
+      const result = await workspaceAdminService.setOwner(workspaceId, userId, replace);
       logAdminAction({
-        handler: "admin_set_assigner",
+        handler: replace ? "admin_replace_owner" : "admin_set_owner",
         adminUserId: ctx.from.id,
         workspaceId,
         targetUserId: userId,
         result: "OK"
       });
-      await ctx.reply(`Assigner set: ${result.assignerUserId}`);
+      await ctx.reply(`Owner set: ${result.ownerUserId}`);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       logAdminAction({
-        handler: "admin_set_assigner",
+        handler: replace ? "admin_replace_owner" : "admin_set_owner",
         adminUserId: ctx.from.id,
         workspaceId,
         targetUserId: userId,
         result: "ERROR",
         errorCode: message.includes("already")
-          ? "ASSIGNER_ALREADY_SET"
+          ? "OWNER_ALREADY_SET"
           : message.includes("not found")
             ? "WORKSPACE_NOT_FOUND"
             : "UNKNOWN"
       });
-      await ctx.reply(message.includes("already") ? "Assigner already set" : "No workspace found");
+      await ctx.reply(message.includes("already") ? "Owner already set" : "No workspace found");
     }
+  }
+
+  bot.command("admin_set_owner", async (ctx) => {
+    await handleAdminSetOwnerCommand(
+      ctx as unknown as {
+        chat: { type: string };
+        from: { id: number };
+        message: { text?: string };
+        reply(text: string): Promise<unknown>;
+      },
+      false
+    );
+  });
+
+  bot.command("admin_set_assigner", async (ctx) => {
+    await handleAdminSetOwnerCommand(
+      ctx as unknown as {
+        chat: { type: string };
+        from: { id: number };
+        message: { text?: string };
+        reply(text: string): Promise<unknown>;
+      },
+      false
+    );
+  });
+
+  bot.command("admin_replace_owner", async (ctx) => {
+    await handleAdminSetOwnerCommand(
+      ctx as unknown as {
+        chat: { type: string };
+        from: { id: number };
+        message: { text?: string };
+        reply(text: string): Promise<unknown>;
+      },
+      true
+    );
   });
 
   bot.command("admin_replace_assigner", async (ctx) => {
-    if (ctx.chat.type !== "private") {
-      return;
-    }
-    if (!isAdmin(String(ctx.from.id), adminUserIds)) {
-      await ctx.reply("Forbidden");
-      return;
-    }
-    const text = (ctx.message as { text?: string }).text ?? "";
-    const parts = text.trim().split(/\s+/);
-    const workspaceId = parts[1];
-    const userId = parts[2];
-    if (!workspaceId || !userId) {
-      await ctx.reply("Send: /admin_replace_assigner <workspaceId> <userId>");
-      return;
-    }
-    try {
-      const result = await workspaceAdminService.setAssigner(workspaceId, userId, true);
-      logAdminAction({
-        handler: "admin_replace_assigner",
-        adminUserId: ctx.from.id,
-        workspaceId,
-        targetUserId: userId,
-        result: "OK"
-      });
-      await ctx.reply(`Assigner set: ${result.assignerUserId}`);
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logAdminAction({
-        handler: "admin_replace_assigner",
-        adminUserId: ctx.from.id,
-        workspaceId,
-        targetUserId: userId,
-        result: "ERROR",
-        errorCode: message.includes("not found") ? "WORKSPACE_NOT_FOUND" : "UNKNOWN"
-      });
-      await ctx.reply("No workspace found");
-    }
+    await handleAdminSetOwnerCommand(
+      ctx as unknown as {
+        chat: { type: string };
+        from: { id: number };
+        message: { text?: string };
+        reply(text: string): Promise<unknown>;
+      },
+      true
+    );
   });
 
   bot.command("admin_reset", async (ctx) => {
@@ -685,7 +705,7 @@ export function createBot(
     }
   });
 
-  bot.action(/^admin_set_assigner$/, async (ctx) => {
+  bot.action(/^admin_set_owner$/, async (ctx) => {
     await ctx.answerCbQuery();
     if (!isAdmin(String(ctx.from.id), adminUserIds)) {
       await ctx.reply("Forbidden");
@@ -693,22 +713,22 @@ export function createBot(
     }
     try {
       const latestWorkspaceId = await workspaceAdminService.getLatestWorkspaceId();
-      const usage = "Send: /admin_set_assigner <workspaceId> <userId>";
+      const usage = "Send: /admin_set_owner <workspaceId> <userId>";
       const hint = latestWorkspaceId
         ? `${usage}\nLatest workspaceId: ${latestWorkspaceId}`
         : usage;
       await ctx.reply(hint);
       logAdminAction({
-        handler: "admin_set_assigner_button",
+        handler: "admin_set_owner_button",
         adminUserId: ctx.from.id,
         workspaceId: latestWorkspaceId,
         targetUserId: null,
         result: "OK"
       });
     } catch {
-      await ctx.reply("Send: /admin_set_assigner <workspaceId> <userId>");
+      await ctx.reply("Send: /admin_set_owner <workspaceId> <userId>");
       logAdminAction({
-        handler: "admin_set_assigner_button",
+        handler: "admin_set_owner_button",
         adminUserId: ctx.from.id,
         workspaceId: null,
         targetUserId: null,
@@ -716,6 +736,18 @@ export function createBot(
         errorCode: "LATEST_WORKSPACE_READ_FAILED"
       });
     }
+  });
+
+  bot.action(/^admin_set_assigner$/, async (ctx) => {
+    await ctx.answerCbQuery();
+    if (!isAdmin(String(ctx.from.id), adminUserIds)) {
+      await ctx.reply("Forbidden");
+      return;
+    }
+    const latestWorkspaceId = await workspaceAdminService.getLatestWorkspaceId();
+    const usage = "Send: /admin_set_owner <workspaceId> <userId>";
+    const hint = latestWorkspaceId ? `${usage}\nLatest workspaceId: ${latestWorkspaceId}` : usage;
+    await ctx.reply(hint);
   });
 
   bot.action(/^draft_assignee:([^:]+):([^:]+)$/, async (ctx) => {

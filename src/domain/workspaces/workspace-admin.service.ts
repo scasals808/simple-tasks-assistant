@@ -25,24 +25,20 @@ export class WorkspaceAdminService {
     return { id: workspace.id, title: workspace.title };
   }
 
-  async setAssigner(
+  async setOwner(
     workspaceId: string,
     userId: string,
     replace = false
-  ): Promise<{ id: string; assignerUserId: string | null }> {
+  ): Promise<{ id: string; ownerUserId: string | null }> {
     const workspace = await this.workspaceRepo.findById(workspaceId);
     if (!workspace) {
       throw new WorkspaceAdminError("Workspace not found");
     }
-    if (
-      workspace.assignerUserId &&
-      workspace.assignerUserId !== userId &&
-      !replace
-    ) {
-      throw new WorkspaceAdminError("Assigner already set");
+    if (workspace.ownerUserId && workspace.ownerUserId !== userId && !replace) {
+      throw new WorkspaceAdminError("Owner already set");
     }
-    const updated = await this.workspaceRepo.updateAssigner(workspaceId, userId);
-    return { id: updated.id, assignerUserId: updated.assignerUserId };
+    const updated = await this.workspaceRepo.updateOwner(workspaceId, userId);
+    return { id: updated.id, ownerUserId: updated.ownerUserId };
   }
 
   async createInvite(workspaceId: string, expiresAt: Date | null = null): Promise<{ token: string }> {
@@ -64,15 +60,15 @@ export class WorkspaceAdminService {
     return { token: invite.token, workspaceId: workspace.id };
   }
 
-  async setAssignerForLatest(
+  async setOwnerForLatest(
     userId: string,
     replace = false
-  ): Promise<{ id: string; assignerUserId: string | null }> {
+  ): Promise<{ id: string; ownerUserId: string | null }> {
     const workspace = await this.workspaceRepo.findLatest();
     if (!workspace) {
       throw new WorkspaceAdminError("Workspace not found");
     }
-    return this.setAssigner(workspace.id, userId, replace);
+    return this.setOwner(workspace.id, userId, replace);
   }
 
   async getLatestWorkspaceId(): Promise<string | null> {

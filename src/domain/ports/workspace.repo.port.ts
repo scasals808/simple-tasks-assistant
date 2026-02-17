@@ -2,7 +2,7 @@ export type Workspace = {
   id: string;
   chatId: string;
   title: string | null;
-  assignerUserId: string | null;
+  ownerUserId: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -13,5 +13,5 @@ export interface WorkspaceRepo {
   findById(id: string): Promise<Workspace | null>;
   createManual(chatId: string, title?: string): Promise<Workspace>;
   findLatest(): Promise<Workspace | null>;
-  updateAssigner(workspaceId: string, assignerUserId: string | null): Promise<Workspace>;
+  updateOwner(workspaceId: string, ownerUserId: string | null): Promise<Workspace>;
 }

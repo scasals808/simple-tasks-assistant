@@ -23,7 +23,7 @@ describe("WorkspaceRepoPrisma", () => {
       id: "ws-1",
       chatId: "chat-1",
       title: "Team Chat",
-      assignerUserId: null,
+      ownerUserId: null,
       createdAt: now,
       updatedAt: now
     });
@@ -40,7 +40,7 @@ describe("WorkspaceRepoPrisma", () => {
       id: "ws-1",
       chatId: "chat-1",
       title: "Team Chat",
-      assignerUserId: null,
+      ownerUserId: null,
       createdAt: now,
       updatedAt: now
     });

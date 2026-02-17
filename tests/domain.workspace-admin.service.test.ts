@@ -7,12 +7,12 @@ import {
   WorkspaceAdminService
 } from "../src/domain/workspaces/workspace-admin.service.js";
 
-function makeWorkspace(overrides: Partial<{ assignerUserId: string | null }> = {}) {
+function makeWorkspace(overrides: Partial<{ ownerUserId: string | null }> = {}) {
   return {
     id: "ws-1",
     chatId: "chat-1",
     title: "Team A",
-    assignerUserId: null,
+    ownerUserId: null,
     createdAt: new Date("2026-02-16T00:00:00.000Z"),
     updatedAt: new Date("2026-02-16T00:00:00.000Z"),
     ...overrides
@@ -38,7 +38,7 @@ describe("WorkspaceAdminService", () => {
       findById: vi.fn(async () => makeWorkspace()),
       createManual,
       findLatest: vi.fn(async () => makeWorkspace()),
-      updateAssigner: vi.fn(async () => makeWorkspace())
+      updateOwner: vi.fn(async () => makeWorkspace())
     };
     const inviteRepo: WorkspaceInviteRepo = {
       findValidByToken: vi.fn(async () => null),
@@ -67,7 +67,7 @@ describe("WorkspaceAdminService", () => {
       findById: vi.fn(async () => makeWorkspace()),
       createManual: vi.fn(async () => makeWorkspace()),
       findLatest: vi.fn(async () => makeWorkspace()),
-      updateAssigner: vi.fn(async () => makeWorkspace())
+      updateOwner: vi.fn(async () => makeWorkspace())
     };
     const createInvite = vi.fn(async (_workspaceId, token) => ({
       id: "wi-1",
@@ -88,14 +88,14 @@ describe("WorkspaceAdminService", () => {
     expect(createInvite).toHaveBeenCalledTimes(1);
   });
 
-  it("assigner cannot be overwritten without explicit replace", async () => {
+  it("owner cannot be overwritten without explicit replace", async () => {
     const workspaceRepo: WorkspaceRepo = {
       ensureByChatId: vi.fn(async () => makeWorkspace()),
       findByChatId: vi.fn(async () => makeWorkspace()),
-      findById: vi.fn(async () => makeWorkspace({ assignerUserId: "admin-1" })),
+      findById: vi.fn(async () => makeWorkspace({ ownerUserId: "admin-1" })),
       createManual: vi.fn(async () => makeWorkspace()),
       findLatest: vi.fn(async () => makeWorkspace()),
-      updateAssigner: vi.fn(async () => makeWorkspace({ assignerUserId: "admin-2" }))
+      updateOwner: vi.fn(async () => makeWorkspace({ ownerUserId: "admin-2" }))
     };
     const inviteRepo: WorkspaceInviteRepo = {
       findValidByToken: vi.fn(async () => null),
@@ -109,20 +109,20 @@ describe("WorkspaceAdminService", () => {
     };
     const service = new WorkspaceAdminService(workspaceRepo, inviteRepo, makeResetRepo());
 
-    await expect(service.setAssigner("ws-1", "admin-2", false)).rejects.toBeInstanceOf(
+    await expect(service.setOwner("ws-1", "admin-2", false)).rejects.toBeInstanceOf(
       WorkspaceAdminError
     );
   });
 
-  it("sets assigner when workspace assigner is empty", async () => {
-    const updateAssigner = vi.fn(async () => makeWorkspace({ assignerUserId: "executor-1" }));
+  it("sets owner when workspace owner is empty", async () => {
+    const updateOwner = vi.fn(async () => makeWorkspace({ ownerUserId: "executor-1" }));
     const workspaceRepo: WorkspaceRepo = {
       ensureByChatId: vi.fn(async () => makeWorkspace()),
       findByChatId: vi.fn(async () => makeWorkspace()),
-      findById: vi.fn(async () => makeWorkspace({ assignerUserId: null })),
+      findById: vi.fn(async () => makeWorkspace({ ownerUserId: null })),
       createManual: vi.fn(async () => makeWorkspace()),
       findLatest: vi.fn(async () => makeWorkspace()),
-      updateAssigner
+      updateOwner
     };
     const inviteRepo: WorkspaceInviteRepo = {
       findValidByToken: vi.fn(async () => null),
@@ -136,21 +136,21 @@ describe("WorkspaceAdminService", () => {
     };
     const service = new WorkspaceAdminService(workspaceRepo, inviteRepo, makeResetRepo());
 
-    const result = await service.setAssigner("ws-1", "executor-1", false);
+    const result = await service.setOwner("ws-1", "executor-1", false);
 
-    expect(result.assignerUserId).toBe("executor-1");
-    expect(updateAssigner).toHaveBeenCalledWith("ws-1", "executor-1");
+    expect(result.ownerUserId).toBe("executor-1");
+    expect(updateOwner).toHaveBeenCalledWith("ws-1", "executor-1");
   });
 
-  it("allows assigner replace when explicit flag is true", async () => {
-    const updateAssigner = vi.fn(async () => makeWorkspace({ assignerUserId: "admin-2" }));
+  it("allows owner replace when explicit flag is true", async () => {
+    const updateOwner = vi.fn(async () => makeWorkspace({ ownerUserId: "admin-2" }));
     const workspaceRepo: WorkspaceRepo = {
       ensureByChatId: vi.fn(async () => makeWorkspace()),
       findByChatId: vi.fn(async () => makeWorkspace()),
-      findById: vi.fn(async () => makeWorkspace({ assignerUserId: "admin-1" })),
+      findById: vi.fn(async () => makeWorkspace({ ownerUserId: "admin-1" })),
       createManual: vi.fn(async () => makeWorkspace()),
       findLatest: vi.fn(async () => makeWorkspace()),
-      updateAssigner
+      updateOwner
     };
     const inviteRepo: WorkspaceInviteRepo = {
       findValidByToken: vi.fn(async () => null),
@@ -164,10 +164,10 @@ describe("WorkspaceAdminService", () => {
     };
     const service = new WorkspaceAdminService(workspaceRepo, inviteRepo, makeResetRepo());
 
-    const result = await service.setAssigner("ws-1", "admin-2", true);
+    const result = await service.setOwner("ws-1", "admin-2", true);
 
-    expect(result.assignerUserId).toBe("admin-2");
-    expect(updateAssigner).toHaveBeenCalledWith("ws-1", "admin-2");
+    expect(result.ownerUserId).toBe("admin-2");
+    expect(updateOwner).toHaveBeenCalledWith("ws-1", "admin-2");
   });
 
   it("throws when creating invite for missing workspace", async () => {
@@ -177,7 +177,7 @@ describe("WorkspaceAdminService", () => {
       findById: vi.fn(async () => null),
       createManual: vi.fn(async () => makeWorkspace()),
       findLatest: vi.fn(async () => makeWorkspace()),
-      updateAssigner: vi.fn(async () => makeWorkspace())
+      updateOwner: vi.fn(async () => makeWorkspace())
     };
     const inviteRepo: WorkspaceInviteRepo = {
       findValidByToken: vi.fn(async () => null),
@@ -194,14 +194,14 @@ describe("WorkspaceAdminService", () => {
     await expect(service.createInvite("missing")).rejects.toBeInstanceOf(WorkspaceAdminError);
   });
 
-  it("throws when no latest workspace for invite and assigner flows", async () => {
+  it("throws when no latest workspace for invite and owner flows", async () => {
     const workspaceRepo: WorkspaceRepo = {
       ensureByChatId: vi.fn(async () => makeWorkspace()),
       findByChatId: vi.fn(async () => makeWorkspace()),
       findById: vi.fn(async () => makeWorkspace()),
       createManual: vi.fn(async () => makeWorkspace()),
       findLatest: vi.fn(async () => null),
-      updateAssigner: vi.fn(async () => makeWorkspace())
+      updateOwner: vi.fn(async () => makeWorkspace())
     };
     const inviteRepo: WorkspaceInviteRepo = {
       findValidByToken: vi.fn(async () => null),
@@ -216,6 +216,6 @@ describe("WorkspaceAdminService", () => {
     const service = new WorkspaceAdminService(workspaceRepo, inviteRepo, makeResetRepo());
 
     await expect(service.createInviteForLatest()).rejects.toBeInstanceOf(WorkspaceAdminError);
-    await expect(service.setAssignerForLatest("admin-1")).rejects.toBeInstanceOf(WorkspaceAdminError);
+    await expect(service.setOwnerForLatest("admin-1")).rejects.toBeInstanceOf(WorkspaceAdminError);
   });
 });

@@ -66,8 +66,8 @@ describe("bot admin handlers", () => {
     const workspaceAdminService = {
       createWorkspaceManual: vi.fn(async () => ({ id: "ws-1", title: "T" })),
       createInviteForLatest: vi.fn(async () => ({ token: "tok", workspaceId: "ws-1" })),
-      setAssignerForLatest: vi.fn(async () => ({ id: "ws-1", assignerUserId: "1" })),
-      setAssigner: vi.fn(async () => ({ id: "ws-1", assignerUserId: "1" })),
+      setOwnerForLatest: vi.fn(async () => ({ id: "ws-1", ownerUserId: "1" })),
+      setOwner: vi.fn(async () => ({ id: "ws-1", ownerUserId: "1" })),
       getLatestWorkspaceId: vi.fn(async () => "ws-1"),
       resetAllWorkspaceData: vi.fn(async () => ({
         workspaceMembers: 0,
@@ -106,8 +106,8 @@ describe("bot admin handlers", () => {
     const workspaceAdminService = {
       createWorkspaceManual: vi.fn(async () => ({ id: "ws-1", title: "T" })),
       createInviteForLatest: vi.fn(async () => ({ token: "tok123", workspaceId: "ws-1" })),
-      setAssignerForLatest: vi.fn(async () => ({ id: "ws-1", assignerUserId: "1" })),
-      setAssigner: vi.fn(async () => ({ id: "ws-1", assignerUserId: "1" })),
+      setOwnerForLatest: vi.fn(async () => ({ id: "ws-1", ownerUserId: "1" })),
+      setOwner: vi.fn(async () => ({ id: "ws-1", ownerUserId: "1" })),
       getLatestWorkspaceId: vi.fn(async () => "ws-1"),
       resetAllWorkspaceData: vi.fn(async () => ({
         workspaceMembers: 0,
@@ -138,16 +138,16 @@ describe("bot admin handlers", () => {
     expect(reply).toHaveBeenCalledWith("Invite link: https://t.me/my_bot?start=join_tok123");
   });
 
-  it("parses /admin_set_assigner command and calls domain with explicit ids", async () => {
+  it("parses /admin_set_owner command and calls domain with explicit ids", async () => {
     const reply = vi.fn(async () => undefined);
-    const setAssigner = vi.fn(async () => ({ id: "ws-1", assignerUserId: "42" }));
+    const setOwner = vi.fn(async () => ({ id: "ws-1", ownerUserId: "42" }));
     const taskService = {} as never;
     const workspaceInviteService = {} as never;
     const workspaceAdminService = {
       createWorkspaceManual: vi.fn(async () => ({ id: "ws-1", title: "T" })),
       createInviteForLatest: vi.fn(async () => ({ token: "tok123", workspaceId: "ws-1" })),
-      setAssignerForLatest: vi.fn(async () => ({ id: "ws-1", assignerUserId: "1" })),
-      setAssigner,
+      setOwnerForLatest: vi.fn(async () => ({ id: "ws-1", ownerUserId: "1" })),
+      setOwner,
       getLatestWorkspaceId: vi.fn(async () => "ws-1"),
       resetAllWorkspaceData: vi.fn(async () => ({
         workspaceMembers: 0,
@@ -166,17 +166,17 @@ describe("bot admin handlers", () => {
       false
     ) as unknown as MockBot;
 
-    const handler = bot.commandHandlers.get("admin_set_assigner");
+    const handler = bot.commandHandlers.get("admin_set_owner");
     expect(handler).toBeDefined();
     await handler?.({
       chat: { type: "private" },
       from: { id: 1 },
-      message: { text: "/admin_set_assigner ws-1 42" },
+      message: { text: "/admin_set_owner ws-1 42" },
       reply
     });
 
-    expect(setAssigner).toHaveBeenCalledWith("ws-1", "42", false);
-    expect(reply).toHaveBeenCalledWith("Assigner set: 42");
+    expect(setOwner).toHaveBeenCalledWith("ws-1", "42", false);
+    expect(reply).toHaveBeenCalledWith("Owner set: 42");
   });
 
   it("parses /admin_create_team and calls workspace service", async () => {

@@ -5,7 +5,7 @@ function mapWorkspace(row: {
   id: string;
   chatId: string;
   title: string | null;
-  assignerUserId: string | null;
+  ownerUserId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }): Workspace {
@@ -13,7 +13,7 @@ function mapWorkspace(row: {
     id: row.id,
     chatId: row.chatId,
     title: row.title,
-    assignerUserId: row.assignerUserId,
+    ownerUserId: row.ownerUserId,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
   };
@@ -65,10 +65,10 @@ export class WorkspaceRepoPrisma implements WorkspaceRepo {
     return row ? mapWorkspace(row) : null;
   }
 
-  async updateAssigner(workspaceId: string, assignerUserId: string | null): Promise<Workspace> {
+  async updateOwner(workspaceId: string, ownerUserId: string | null): Promise<Workspace> {
     const row = await prisma.workspace.update({
       where: { id: workspaceId },
-      data: { assignerUserId }
+      data: { ownerUserId }
     });
     return mapWorkspace(row);
   }
