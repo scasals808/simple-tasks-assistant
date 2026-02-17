@@ -8,6 +8,7 @@ Implemented scope:
 - Create tasks from group replies and complete creation in DM through a wizard.
 - Enforce idempotency for draft/task finalization and duplicate webhook/callback delivery.
 - Workspace/member/invite flows with admin-gated operations in DM.
+- Owner tools for member lifecycle (`ACTIVE`/`REMOVED`) and task reassignment with audit.
 
 ## Architecture
 
@@ -49,6 +50,7 @@ Layering rules in code:
 
 - Workspace is tied to a `chatId`.
 - Workspace ownership is tracked via `ownerUserId` and memberships are role-based.
+- Membership has status lifecycle (`ACTIVE` or `REMOVED`) without deleting history rows.
 - Admin operations are gated by env allowlist (`ADMIN_USER_IDS`).
 
 ### 4) Invite system
@@ -72,6 +74,26 @@ Layering rules in code:
 - Admin handlers are still validated server-side even if UI button is hidden.
 - Message deletions are best-effort and never block business flow.
 - No timers/workers are used as business-state source.
+- Membership/activity gates are status-aware: `REMOVED` members are denied workspace/task flows.
+
+### 7) Owner member management (DM)
+
+- Owners see `👥 Участники` in DM menu.
+- Members screen lists active participants with remove confirmation flow.
+- Owner cannot remove owner membership; remove operation sets membership status to `REMOVED`.
+
+### 8) Task reassignment
+
+- Owner sees `👤 Переназначить` on task card.
+- Reassign flow:
+  - pick assignee from active members,
+  - confirm reassignment,
+  - apply domain use-case with idempotent nonce.
+- Audit is stored in `TaskAction` with type `REASSIGN`.
+- Best-effort notifications:
+  - new assignee gets DM with `📎 Open task`,
+  - previous assignee gets informational DM,
+  - Telegram `400/403` are logged and do not fail the operation.
 
 ## Control Flow
 
@@ -86,6 +108,18 @@ Layering rules in code:
 6. Finalize draft:
    - `CREATED` -> reply with created task id
    - `ALREADY_EXISTS` -> reply with existing task id
+
+### Task reassignment (owner)
+
+1. Owner opens task card and clicks `👤 Переназначить`  
+2. Bot shows active assignees as inline buttons  
+3. Owner confirms reassignment  
+4. Domain executes transactional reassignment:
+   - lock task row (`FOR UPDATE`)
+   - enforce owner + active-assignee checks
+   - record `TaskAction(REASSIGN)` with unique `nonce`
+   - update `task.assigneeUserId`
+5. Bot re-renders card and sends best-effort DM notifications
 
 ### Invite Join (`/start join_<token>`)
 
@@ -109,6 +143,7 @@ Layering rules in code:
   - unique by `sourceDraftId`
   - unique by `(sourceChatId, sourceMessageId)`
   - stores final task fields used in bot workflow
+  - list views hide `CLOSED` tasks from `assigned` and `created` menus
 - `TaskDraft`
   - unique `token`
   - status and wizard step fields
@@ -120,6 +155,10 @@ Layering rules in code:
 - `WorkspaceMember`
   - unique by `(workspaceId, userId)`
   - role (`OWNER` or `MEMBER`) in product terminology
+  - status (`ACTIVE` or `REMOVED`) for soft exclusion
+- `TaskAction`
+  - audit log of user actions on tasks
+  - includes `REASSIGN` for assignment changes
 - `WorkspaceInvite`
   - unique `token`
   - `workspaceId`
