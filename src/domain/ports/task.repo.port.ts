@@ -56,6 +56,7 @@ export interface TaskRepo {
   findByAssigneeUserId(assigneeUserId: string): Promise<Task[]>;
   listAssignedTasks(workspaceId: string, viewerUserId: string, limit: number): Promise<Task[]>;
   listCreatedTasks(workspaceId: string, viewerUserId: string, limit: number): Promise<Task[]>;
+  listOnReviewTasks(workspaceId: string, limit: number): Promise<Task[]>;
   findDraftByCreatorAndStep(creatorUserId: string, step: DraftStep): Promise<TaskDraft | null>;
   findAwaitingDeadlineDraftByCreator(creatorUserId: string): Promise<TaskDraft | null>;
   updateDraft(

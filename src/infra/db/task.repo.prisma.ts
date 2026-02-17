@@ -326,6 +326,60 @@ export class PrismaTaskRepo implements TaskRepo {
     return rows.map(mapTask);
   }
 
+  async listOnReviewTasks(workspaceId: string, limit: number): Promise<Task[]> {
+    const rows = await prisma.$queryRaw<
+      Array<{
+        id: string;
+        sourceDraftId: string;
+        workspaceId: string | null;
+        sourceChatId: string;
+        sourceMessageId: string;
+        sourceText: string;
+        sourceLink: string | null;
+        creatorUserId: string;
+        assigneeUserId: string;
+        priority: string;
+        deadlineAt: Date | null;
+        status: string;
+        submittedForReviewAt: Date | null;
+        createdAt: Date;
+        updatedAt: Date;
+      }>
+    >(Prisma.sql`
+      SELECT
+        t."id",
+        t."sourceDraftId",
+        t."workspaceId",
+        t."sourceChatId",
+        t."sourceMessageId",
+        t."sourceText",
+        t."sourceLink",
+        t."creatorUserId",
+        t."assigneeUserId",
+        t."priority",
+        t."deadlineAt",
+        t."status",
+        t."submittedForReviewAt",
+        t."createdAt",
+        t."updatedAt"
+      FROM "Task" t
+      WHERE t."workspaceId" = ${workspaceId}
+        AND t."status" = 'ON_REVIEW'
+      ORDER BY
+        CASE t."priority"
+          WHEN 'P1' THEN 1
+          WHEN 'P2' THEN 2
+          WHEN 'P3' THEN 3
+          ELSE 4
+        END ASC,
+        t."deadlineAt" ASC NULLS LAST,
+        t."createdAt" ASC,
+        t."id" ASC
+      LIMIT ${limit}
+    `);
+    return rows.map(mapTask);
+  }
+
   async findAwaitingDeadlineDraftByCreator(creatorUserId: string): Promise<TaskDraft | null> {
     const row = await prisma.taskDraft.findFirst({
       where: {

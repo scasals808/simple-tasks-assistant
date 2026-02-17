@@ -54,6 +54,10 @@ export class WorkspaceMemberService {
     return this.workspaceMemberRepo.listByWorkspace(workspaceId);
   }
 
+  async findMember(workspaceId: string, userId: string): Promise<WorkspaceMember | null> {
+    return this.workspaceMemberRepo.findMember(workspaceId, userId);
+  }
+
   async findLatestWorkspaceIdForUser(userId: string): Promise<string | null> {
     return this.workspaceMemberRepo.findLatestWorkspaceIdByUser(userId);
   }

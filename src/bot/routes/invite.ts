@@ -31,6 +31,18 @@ function renderMemberDisplayName(member: {
 }
 
 export function registerInviteRoutes(bot: Telegraf, deps: BotDeps): void {
+  async function canSeeOnReviewButton(userId: number | undefined): Promise<boolean> {
+    if (typeof userId !== "number") {
+      return false;
+    }
+    const workspaceId = await deps.workspaceMemberService.findLatestWorkspaceIdForUser(String(userId));
+    if (!workspaceId) {
+      return false;
+    }
+    const membership = await deps.workspaceMemberService.findMember(workspaceId, String(userId));
+    return membership?.role === "OWNER";
+  }
+
   bot.start(async (ctx) => {
     if (ctx.chat.type !== "private") {
       return;
@@ -41,7 +53,11 @@ export function registerInviteRoutes(bot: Telegraf, deps: BotDeps): void {
     const route = selectStartRoute(parsed);
     if (route === "join" && parsed.type === "join") {
       await handleStartJoin(ctx, deps.workspaceInviteService, parsed.token);
-      const rowsAfterJoin = buildMainMenuRows(ctx.from?.id, deps.adminUserIds);
+      const rowsAfterJoin = buildMainMenuRows(
+        ctx.from?.id,
+        deps.adminUserIds,
+        await canSeeOnReviewButton(ctx.from?.id)
+      );
       await ctx.reply("Меню", Markup.keyboard(rowsAfterJoin).resize());
       return;
     }
@@ -84,7 +100,11 @@ export function registerInviteRoutes(bot: Telegraf, deps: BotDeps): void {
       tgUsername: ctx.from.username ?? null
     });
 
-    const rows = buildMainMenuRows(ctx.from?.id, deps.adminUserIds);
+    const rows = buildMainMenuRows(
+      ctx.from?.id,
+      deps.adminUserIds,
+      await canSeeOnReviewButton(ctx.from?.id)
+    );
     const count = rows.reduce((acc, row) => acc + row.length, 0);
     logMenuRender({
       userId: ctx.from?.id,

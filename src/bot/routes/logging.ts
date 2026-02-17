@@ -147,7 +147,7 @@ export function logMenuRender(input: {
 }
 
 export function logTaskList(input: {
-  handler: "list_assigned_tasks" | "list_created_tasks";
+  handler: "list_assigned_tasks" | "list_created_tasks" | "list_on_review_tasks";
   userId: string;
   workspaceId: string | null;
   count: number;

@@ -55,10 +55,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     ].join("\n");
 
     const keyboard = Markup.inlineKeyboard([
-      [
-        Markup.button.callback(ru.buttons.openTask, `task_open:${input.taskId}`),
-        Markup.button.callback(ru.buttons.contextPlain, `task_context:${input.taskId}`)
-      ]
+      [Markup.button.callback(ru.buttons.openTask, `task_open:${input.taskId}`)]
     ]);
 
     try {
@@ -76,6 +73,22 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
       }
       throw error;
     }
+  }
+
+  function renderMemberDisplayName(member: {
+    userId: string;
+    tgFirstName: string | null;
+    tgLastName: string | null;
+    tgUsername: string | null;
+  }): string {
+    const fullName = `${member.tgFirstName ?? ""} ${member.tgLastName ?? ""}`.trim();
+    if (fullName) {
+      return fullName;
+    }
+    if (member.tgUsername) {
+      return `@${member.tgUsername}`;
+    }
+    return `id:${member.userId}`;
   }
 
   async function handleTaskList(
@@ -210,7 +223,70 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     await ctx.reply(ru.dmTask.enterText);
   }
 
-  bot.hears(["📥 Мне назначено", "✍️ Я создал", "➕ Новая задача", "ℹ️ Помощь"], async (ctx) => {
+  async function handleOnReviewList(ctx: {
+    from: { id: number; first_name?: string; last_name?: string; username?: string };
+    reply(text: string, extra?: unknown): Promise<unknown>;
+  }): Promise<void> {
+    const userId = String(ctx.from.id);
+    const startedAt = Date.now();
+    try {
+      const workspaceId = await deps.workspaceMemberService.findLatestWorkspaceIdForUser(userId);
+      if (!workspaceId) {
+        logTaskList({
+          handler: "list_on_review_tasks",
+          userId,
+          workspaceId: null,
+          count: 0,
+          queryMs: Date.now() - startedAt,
+          errorCode: "NOT_IN_WORKSPACE"
+        });
+        await ctx.reply(ru.taskList.joinTeamFirst);
+        return;
+      }
+
+      await deps.workspaceMemberService.touchLatestMembershipProfile(userId, {
+        tgFirstName: ctx.from.first_name ?? null,
+        tgLastName: ctx.from.last_name ?? null,
+        tgUsername: ctx.from.username ?? null
+      });
+
+      const result = await deps.taskService.listOnReviewTasks({
+        workspaceId,
+        viewerUserId: userId,
+        limit: 20
+      });
+      if (result.status === "NOT_IN_WORKSPACE") {
+        await ctx.reply(ru.taskList.joinTeamFirst);
+        return;
+      }
+      if (result.status === "NOT_OWNER") {
+        await ctx.reply(ru.reviewList.onlyOwner);
+        return;
+      }
+
+      if (result.tasks.length === 0) {
+        await ctx.reply(`${ru.reviewList.header(0)}\n${ru.reviewList.empty}`);
+        return;
+      }
+
+      const members = await deps.workspaceMemberService.listWorkspaceMembers(workspaceId);
+      const assigneeNameByUserId = new Map(members.map((member) => [member.userId, renderMemberDisplayName(member)]));
+      const body = result.tasks
+        .map((task, index) => {
+          const color = task.priority === "P1" ? "🔴" : task.priority === "P2" ? "🟠" : "🟡";
+          const title = shortenText(task.sourceText, 40);
+          const assignee = assigneeNameByUserId.get(task.assigneeUserId) ?? `id:${task.assigneeUserId}`;
+          return `${index + 1}) ${color} ${task.priority} • ${title}\n👤 ${assignee}\n⏰ ${formatDueDate(task.deadlineAt)}`;
+        })
+        .join("\n\n");
+      const buttons = result.tasks.map((task) => [Markup.button.callback(ru.buttons.contextPlain, `task_open:${task.id}`)]);
+      await ctx.reply(`${ru.reviewList.header(result.tasks.length)}\n\n${body}`, Markup.inlineKeyboard(buttons));
+    } catch {
+      await ctx.reply(ru.reviewList.loadFailed);
+    }
+  }
+
+  bot.hears(["📥 Мне назначено", "✍️ Я создал", "➕ Новая задача", "ℹ️ Помощь", ru.menu.onReview], async (ctx) => {
     if (ctx.chat.type !== "private") {
       return;
     }
@@ -240,6 +316,15 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
         ctx as unknown as {
           chat: { type: string };
           from: { id: number };
+          reply(text: string, extra?: unknown): Promise<unknown>;
+        }
+      );
+      return;
+    }
+    if (text === ru.menu.onReview) {
+      await handleOnReviewList(
+        ctx as unknown as {
+          from: { id: number; first_name?: string; last_name?: string; username?: string };
           reply(text: string, extra?: unknown): Promise<unknown>;
         }
       );

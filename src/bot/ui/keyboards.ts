@@ -36,10 +36,14 @@ export function adminMenuKeyboard() {
 
 export function buildMainMenuRows(
   userId: number | undefined,
-  adminUserIds: Set<string>
+  adminUserIds: Set<string>,
+  showOnReviewButton = false
 ): string[][] {
   const isAdminUser = typeof userId === "number" && isAdmin(userId, adminUserIds);
   const rows: string[][] = [["📥 Мне назначено", "✍️ Я создал"], ["➕ Новая задача", "ℹ️ Помощь"]];
+  if (showOnReviewButton) {
+    rows.push([ru.menu.onReview]);
+  }
   if (isAdminUser) {
     rows.push(["Admin"]);
   }

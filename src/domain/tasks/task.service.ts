@@ -107,6 +107,23 @@ export class TaskService {
     return { status: "OK", tasks };
   }
 
+  async listOnReviewTasks(input: {
+    workspaceId: string;
+    viewerUserId: string;
+    limit?: number;
+  }): Promise<{ status: "NOT_IN_WORKSPACE" } | { status: "NOT_OWNER" } | { status: "OK"; tasks: Task[] }> {
+    const membership = await this.workspaceMemberRepo.findMember(input.workspaceId, input.viewerUserId);
+    if (!membership) {
+      return { status: "NOT_IN_WORKSPACE" };
+    }
+    if (membership.role !== "OWNER") {
+      return { status: "NOT_OWNER" };
+    }
+    const limit = input.limit ?? 20;
+    const tasks = await this.taskRepo.listOnReviewTasks(input.workspaceId, limit);
+    return { status: "OK", tasks };
+  }
+
   async createTask(input: CreateTaskInput): Promise<Task> {
     const now = this.clock.now();
 
@@ -210,10 +227,17 @@ export class TaskService {
     if (!task) {
       return null;
     }
-    if (task.creatorUserId !== viewerUserId && task.assigneeUserId !== viewerUserId) {
+    if (task.creatorUserId === viewerUserId || task.assigneeUserId === viewerUserId) {
+      return task;
+    }
+    if (!task.workspaceId) {
       return null;
     }
-    return task;
+    const membership = await this.workspaceMemberRepo.findMember(task.workspaceId, viewerUserId);
+    if (membership?.role === "OWNER") {
+      return task;
+    }
+    return null;
   }
 
   async startDraftWizard(token: string, requesterUserId: string): Promise<StartDraftWizardResult> {
