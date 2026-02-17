@@ -24,6 +24,7 @@ describe("WorkspaceMemberRepoPrisma", () => {
       workspaceId: "ws-1",
       userId: "u-1",
       role: "MEMBER",
+      status: "ACTIVE",
       tgFirstName: null,
       tgLastName: null,
       tgUsername: null,
@@ -45,6 +46,7 @@ describe("WorkspaceMemberRepoPrisma", () => {
         workspaceId: "ws-1",
         userId: "u-1",
         role: "MEMBER",
+        status: "ACTIVE",
         tgFirstName: null,
         tgLastName: null,
         tgUsername: null,
@@ -53,6 +55,7 @@ describe("WorkspaceMemberRepoPrisma", () => {
       },
       update: {
         role: "MEMBER",
+        status: "ACTIVE",
         tgFirstName: null,
         tgLastName: null,
         tgUsername: null,
@@ -63,7 +66,8 @@ describe("WorkspaceMemberRepoPrisma", () => {
       id: "wm-1",
       workspaceId: "ws-1",
       userId: "u-1",
-      role: "MEMBER"
+      role: "MEMBER",
+      status: "ACTIVE"
     });
   });
 });

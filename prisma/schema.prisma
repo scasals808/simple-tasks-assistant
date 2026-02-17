@@ -118,6 +118,7 @@ model WorkspaceMember {
   workspaceId String
   userId      String
   role        WorkspaceMemberRole
+  status      WorkspaceMemberStatus @default(ACTIVE)
   tgFirstName String?
   tgLastName  String?
   tgUsername  String?
@@ -129,11 +130,17 @@ model WorkspaceMember {
   @@unique([workspaceId, userId])
   @@index([userId])
   @@index([workspaceId, role])
+  @@index([workspaceId, status])
 }
 
 enum WorkspaceMemberRole {
   OWNER
   MEMBER
+}
+
+enum WorkspaceMemberStatus {
+  ACTIVE
+  REMOVED
 }
 
 model WorkspaceInvite {

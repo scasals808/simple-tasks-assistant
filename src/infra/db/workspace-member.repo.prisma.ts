@@ -1,7 +1,8 @@
 import type {
   WorkspaceMember,
   WorkspaceMemberRepo,
-  WorkspaceMemberRole
+  WorkspaceMemberRole,
+  WorkspaceMemberStatus
 } from "../../domain/ports/workspace-member.repo.port.js";
 import { prisma } from "./prisma.js";
 
@@ -10,6 +11,7 @@ function mapWorkspaceMember(row: {
   workspaceId: string;
   userId: string;
   role: string;
+  status: string;
   tgFirstName: string | null;
   tgLastName: string | null;
   tgUsername: string | null;
@@ -21,6 +23,7 @@ function mapWorkspaceMember(row: {
     workspaceId: row.workspaceId,
     userId: row.userId,
     role: row.role as WorkspaceMemberRole,
+    status: row.status as WorkspaceMemberStatus,
     tgFirstName: row.tgFirstName,
     tgLastName: row.tgLastName,
     tgUsername: row.tgUsername,
@@ -52,6 +55,7 @@ export class WorkspaceMemberRepoPrisma implements WorkspaceMemberRepo {
         workspaceId,
         userId,
         role,
+        status: "ACTIVE",
         tgFirstName: profile?.tgFirstName ?? null,
         tgLastName: profile?.tgLastName ?? null,
         tgUsername: profile?.tgUsername ?? null,
@@ -60,6 +64,7 @@ export class WorkspaceMemberRepoPrisma implements WorkspaceMemberRepo {
       },
       update: {
         role,
+        status: "ACTIVE",
         tgFirstName: profile?.tgFirstName ?? null,
         tgLastName: profile?.tgLastName ?? null,
         tgUsername: profile?.tgUsername ?? null,
@@ -83,7 +88,7 @@ export class WorkspaceMemberRepoPrisma implements WorkspaceMemberRepo {
 
   async listByWorkspace(workspaceId: string): Promise<WorkspaceMember[]> {
     const rows = await prisma.workspaceMember.findMany({
-      where: { workspaceId },
+      where: { workspaceId, status: "ACTIVE" },
       orderBy: [{ role: "asc" }, { joinedAt: "asc" }]
     });
     return rows.map(mapWorkspaceMember);
@@ -91,9 +96,37 @@ export class WorkspaceMemberRepoPrisma implements WorkspaceMemberRepo {
 
   async findLatestWorkspaceIdByUser(userId: string): Promise<string | null> {
     const row = await prisma.workspaceMember.findFirst({
-      where: { userId },
+      where: { userId, status: "ACTIVE" },
       orderBy: [{ lastSeenAt: "desc" }, { joinedAt: "desc" }]
     });
     return row?.workspaceId ?? null;
+  }
+
+  async findActiveMember(workspaceId: string, userId: string): Promise<WorkspaceMember | null> {
+    const row = await prisma.workspaceMember.findFirst({
+      where: {
+        workspaceId,
+        userId,
+        status: "ACTIVE"
+      }
+    });
+    return row ? mapWorkspaceMember(row) : null;
+  }
+
+  async setMemberStatus(
+    workspaceId: string,
+    userId: string,
+    status: WorkspaceMemberStatus
+  ): Promise<WorkspaceMember> {
+    const row = await prisma.workspaceMember.update({
+      where: {
+        workspaceId_userId: {
+          workspaceId,
+          userId
+        }
+      },
+      data: { status }
+    });
+    return mapWorkspaceMember(row);
   }
 }

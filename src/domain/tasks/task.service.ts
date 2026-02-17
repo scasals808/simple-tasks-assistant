@@ -7,6 +7,7 @@ import type {
 import type { TaskActionRepo } from "../ports/task-action.repo.port.js";
 import type { WorkspaceMemberRepo } from "../ports/workspace-member.repo.port.js";
 import type { Task, TaskPriority } from "./task.types.js";
+import { requireActiveMembership } from "../workspaces/membership-gates.js";
 
 export type CreateTaskInput = {
   id: string;
@@ -84,8 +85,12 @@ export class TaskService {
     viewerUserId: string;
     limit?: number;
   }): Promise<{ status: "NOT_IN_WORKSPACE" } | { status: "OK"; tasks: Task[] }> {
-    const membership = await this.workspaceMemberRepo.findMember(input.workspaceId, input.viewerUserId);
-    if (!membership) {
+    const hasActiveMembership = await requireActiveMembership(
+      this.workspaceMemberRepo,
+      input.workspaceId,
+      input.viewerUserId
+    );
+    if (!hasActiveMembership) {
       return { status: "NOT_IN_WORKSPACE" };
     }
     const limit = input.limit ?? 20;
@@ -98,8 +103,12 @@ export class TaskService {
     viewerUserId: string;
     limit?: number;
   }): Promise<{ status: "NOT_IN_WORKSPACE" } | { status: "OK"; tasks: Task[] }> {
-    const membership = await this.workspaceMemberRepo.findMember(input.workspaceId, input.viewerUserId);
-    if (!membership) {
+    const hasActiveMembership = await requireActiveMembership(
+      this.workspaceMemberRepo,
+      input.workspaceId,
+      input.viewerUserId
+    );
+    if (!hasActiveMembership) {
       return { status: "NOT_IN_WORKSPACE" };
     }
     const limit = input.limit ?? 20;
@@ -112,7 +121,10 @@ export class TaskService {
     viewerUserId: string;
     limit?: number;
   }): Promise<{ status: "NOT_IN_WORKSPACE" } | { status: "NOT_OWNER" } | { status: "OK"; tasks: Task[] }> {
-    const membership = await this.workspaceMemberRepo.findMember(input.workspaceId, input.viewerUserId);
+    const membership = await this.workspaceMemberRepo.findActiveMember(
+      input.workspaceId,
+      input.viewerUserId
+    );
     if (!membership) {
       return { status: "NOT_IN_WORKSPACE" };
     }
@@ -236,7 +248,7 @@ export class TaskService {
     if (!task.workspaceId) {
       return null;
     }
-    const membership = await this.workspaceMemberRepo.findMember(task.workspaceId, viewerUserId);
+    const membership = await this.workspaceMemberRepo.findActiveMember(task.workspaceId, viewerUserId);
     if (membership?.role === "OWNER") {
       return task;
     }
@@ -411,7 +423,7 @@ export class TaskService {
     if (result.status === "SUCCESS") {
       // Additional workspace membership check 
       if (result.task.workspaceId) {
-        const membership = await this.workspaceMemberRepo.findMember(
+        const membership = await this.workspaceMemberRepo.findActiveMember(
           result.task.workspaceId,
           input.actorUserId
         );
@@ -440,7 +452,7 @@ export class TaskService {
       input.nonce
     );
     if (result.status === "SUCCESS" && result.task.workspaceId) {
-      const membership = await this.workspaceMemberRepo.findMember(
+      const membership = await this.workspaceMemberRepo.findActiveMember(
         result.task.workspaceId,
         input.actorUserId
       );
@@ -491,7 +503,10 @@ export class TaskService {
     if (!task || !task.workspaceId || task.status !== "ON_REVIEW") {
       return { status: "NOT_FOUND" };
     }
-    const membership = await this.workspaceMemberRepo.findMember(task.workspaceId, input.actorUserId);
+    const membership = await this.workspaceMemberRepo.findActiveMember(
+      task.workspaceId,
+      input.actorUserId
+    );
     if (!membership || membership.role !== "OWNER") {
       return { status: "FORBIDDEN" };
     }

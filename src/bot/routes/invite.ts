@@ -45,7 +45,7 @@ export function registerInviteRoutes(bot: Telegraf, deps: BotDeps): void {
       await deps.workspaceMemberService.upsertOwnerMembership(workspaceId, userIdText);
       return true;
     }
-    const membership = await deps.workspaceMemberService.findMember(workspaceId, userIdText);
+    const membership = await deps.workspaceMemberService.findActiveMember(workspaceId, userIdText);
     return membership?.role === "OWNER";
   }
 

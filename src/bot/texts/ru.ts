@@ -58,9 +58,9 @@ export const ru = {
     created: "Задача создана."
   },
   taskCard: {
-    title: "🧾 Карточка задачи",
+    title: "Карточка задачи",
     idShort: (shortId: string) => `#${shortId}`,
-    taskTitle: (title: string) => `📌 ${title}`,
+    taskTitle: (title: string) => `${title}`,
     assignee: (assigneeUserId: string) => `👤 Исполнитель: ${assigneeUserId}`,
     assigneeYou: "👤 Исполнитель: вы",
     priority: (priority: string) => `⚡ Приоритет: ${priority}`,
