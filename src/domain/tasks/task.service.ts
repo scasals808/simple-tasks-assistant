@@ -34,6 +34,10 @@ export type ApplyDateInputResult =
   | { status: "NOT_FOUND" }
   | { status: "INVALID_DATE" }
   | { status: "UPDATED"; draft: TaskDraft };
+export type DmDraftTextApplyResult =
+  | { status: "NOT_FOUND" }
+  | { status: "STALE_STEP"; draft: TaskDraft }
+  | { status: "UPDATED"; draft: TaskDraft };
 
 function endOfDay(date: Date): Date {
   const value = new Date(date);
@@ -124,6 +128,7 @@ export class TaskService {
   async createDraft(input: {
     token: string;
     workspaceId?: string | null;
+    step?: TaskDraft["step"];
     sourceChatId: string;
     sourceMessageId: string;
     sourceText: string;
@@ -131,6 +136,43 @@ export class TaskService {
     creatorUserId: string;
   }): Promise<TaskDraft> {
     return this.taskRepo.createDraft(input);
+  }
+
+  async startDmDraft(input: {
+    workspaceId: string;
+    creatorUserId: string;
+  }): Promise<{ id: string; token: string }> {
+    const token = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const draft = await this.taskRepo.createDraft({
+      token,
+      workspaceId: input.workspaceId,
+      step: "enter_text",
+      sourceChatId: `dm:${input.creatorUserId}`,
+      sourceMessageId: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      sourceText: "",
+      sourceLink: null,
+      creatorUserId: input.creatorUserId
+    });
+    return { id: draft.id, token: draft.token };
+  }
+
+  async applyDmDraftText(creatorUserId: string, sourceText: string): Promise<DmDraftTextApplyResult> {
+    const draft = await this.taskRepo.findDraftByCreatorAndStep(creatorUserId, "enter_text");
+    if (!draft) {
+      return { status: "NOT_FOUND" };
+    }
+    const trimmed = sourceText.trim();
+    if (!trimmed) {
+      return { status: "NOT_FOUND" };
+    }
+    const transitioned = await this.taskRepo.updateDraftStepIfExpected(draft.id, "enter_text", {
+      step: "CHOOSE_ASSIGNEE",
+      sourceText: trimmed
+    });
+    if (!transitioned.updated) {
+      return { status: "STALE_STEP", draft: transitioned.draft };
+    }
+    return { status: "UPDATED", draft: transitioned.draft };
   }
 
   async getMyTasks(viewerUserId: string): Promise<Task[]> {

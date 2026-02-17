@@ -2,6 +2,7 @@ import type { Task } from "../tasks/task.types.js";
 import type { TaskPriority } from "../tasks/task.types.js";
 
 export type DraftStep =
+  | "enter_text"
   | "CHOOSE_ASSIGNEE"
   | "CHOOSE_PRIORITY"
   | "CHOOSE_DEADLINE"
@@ -37,6 +38,7 @@ export interface TaskRepo {
   createDraft(input: {
     token: string;
     workspaceId?: string | null;
+    step?: DraftStep;
     sourceChatId: string;
     sourceMessageId: string;
     sourceText: string;
@@ -48,6 +50,7 @@ export interface TaskRepo {
   findByAssigneeUserId(assigneeUserId: string): Promise<Task[]>;
   listAssignedTasks(workspaceId: string, viewerUserId: string, limit: number): Promise<Task[]>;
   listCreatedTasks(workspaceId: string, viewerUserId: string, limit: number): Promise<Task[]>;
+  findDraftByCreatorAndStep(creatorUserId: string, step: DraftStep): Promise<TaskDraft | null>;
   findAwaitingDeadlineDraftByCreator(creatorUserId: string): Promise<TaskDraft | null>;
   updateDraft(
     draftId: string,
@@ -60,6 +63,17 @@ export interface TaskRepo {
       createdTaskId?: string | null;
     }
   ): Promise<TaskDraft>;
+  updateDraftStepIfExpected(
+    draftId: string,
+    expectedStep: DraftStep,
+    patch: {
+      step: DraftStep;
+      sourceText?: string;
+      assigneeId?: string | null;
+      priority?: TaskPriority | null;
+      deadlineAt?: Date | null;
+    }
+  ): Promise<{ updated: boolean; draft: TaskDraft }>;
   createFromDraft(draft: TaskDraft): Promise<CreateFromDraftResult>;
   markDraftFinal(draftId: string, taskId: string): Promise<void>;
 }

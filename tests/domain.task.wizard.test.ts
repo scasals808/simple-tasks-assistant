@@ -62,7 +62,11 @@ describe("TaskService wizard flow", () => {
       findByAssigneeUserId: vi.fn(async () => []),
       listAssignedTasks: vi.fn(async () => []),
       listCreatedTasks: vi.fn(async () => []),
+      findDraftByCreatorAndStep: vi.fn(async () => null),
       findAwaitingDeadlineDraftByCreator: vi.fn(async () => null),
+      updateDraftStepIfExpected: vi.fn(async () => {
+        throw new Error("unused");
+      }),
       updateDraft: vi.fn(async (_id, patch) => ({ ...draft, ...patch })),
       createFromDraft: vi.fn(async () => ({ status: "CREATED", task: makeTask("task-1") })),
       markDraftFinal: vi.fn(async () => undefined)
@@ -92,7 +96,11 @@ describe("TaskService wizard flow", () => {
       findByAssigneeUserId: vi.fn(async () => []),
       listAssignedTasks: vi.fn(async () => []),
       listCreatedTasks: vi.fn(async () => []),
+      findDraftByCreatorAndStep: vi.fn(async () => null),
       findAwaitingDeadlineDraftByCreator: vi.fn(async () => null),
+      updateDraftStepIfExpected: vi.fn(async () => {
+        throw new Error("unused");
+      }),
       updateDraft: vi.fn(async (_id, patch) => ({ ...draft, ...patch })),
       createFromDraft: vi.fn(async () => ({ status: "CREATED", task: makeTask("task-1") })),
       markDraftFinal: vi.fn(async () => undefined)
@@ -122,7 +130,11 @@ describe("TaskService wizard flow", () => {
       findByAssigneeUserId: vi.fn(async () => []),
       listAssignedTasks: vi.fn(async () => []),
       listCreatedTasks: vi.fn(async () => []),
+      findDraftByCreatorAndStep: vi.fn(async () => null),
       findAwaitingDeadlineDraftByCreator: vi.fn(async () => null),
+      updateDraftStepIfExpected: vi.fn(async () => {
+        throw new Error("unused");
+      }),
       updateDraft,
       createFromDraft: vi.fn(async () => ({ status: "CREATED", task: makeTask("task-1") })),
       markDraftFinal: vi.fn(async () => undefined)
@@ -155,7 +167,11 @@ describe("TaskService wizard flow", () => {
       findByAssigneeUserId: vi.fn(async () => []),
       listAssignedTasks: vi.fn(async () => []),
       listCreatedTasks: vi.fn(async () => []),
+      findDraftByCreatorAndStep: vi.fn(async () => null),
       findAwaitingDeadlineDraftByCreator: vi.fn(async () => null),
+      updateDraftStepIfExpected: vi.fn(async () => {
+        throw new Error("unused");
+      }),
       updateDraft,
       createFromDraft: vi.fn(async () => ({ status: "CREATED", task: makeTask("task-1") })),
       markDraftFinal: vi.fn(async () => undefined)
@@ -188,7 +204,11 @@ describe("TaskService wizard flow", () => {
       findByAssigneeUserId: vi.fn(async () => []),
       listAssignedTasks: vi.fn(async () => []),
       listCreatedTasks: vi.fn(async () => []),
+      findDraftByCreatorAndStep: vi.fn(async () => null),
       findAwaitingDeadlineDraftByCreator: vi.fn(async () => draft),
+      updateDraftStepIfExpected: vi.fn(async () => {
+        throw new Error("unused");
+      }),
       updateDraft,
       createFromDraft: vi.fn(async () => ({ status: "CREATED", task: makeTask("task-1") })),
       markDraftFinal: vi.fn(async () => undefined)
@@ -232,7 +252,11 @@ describe("TaskService wizard flow", () => {
       findByAssigneeUserId: vi.fn(async () => []),
       listAssignedTasks: vi.fn(async () => []),
       listCreatedTasks: vi.fn(async () => []),
+      findDraftByCreatorAndStep: vi.fn(async () => null),
       findAwaitingDeadlineDraftByCreator: vi.fn(async () => null),
+      updateDraftStepIfExpected: vi.fn(async () => {
+        throw new Error("unused");
+      }),
       updateDraft: vi.fn(async (_id, patch) => ({ ...draft, ...patch })),
       createFromDraft,
       markDraftFinal
@@ -270,7 +294,11 @@ describe("TaskService wizard flow", () => {
       findByAssigneeUserId: vi.fn(async () => []),
       listAssignedTasks: vi.fn(async () => []),
       listCreatedTasks: vi.fn(async () => []),
+      findDraftByCreatorAndStep: vi.fn(async () => null),
       findAwaitingDeadlineDraftByCreator: vi.fn(async () => null),
+      updateDraftStepIfExpected: vi.fn(async () => {
+        throw new Error("unused");
+      }),
       updateDraft: vi.fn(async (_id, patch) => ({ ...draft, ...patch })),
       createFromDraft: vi.fn(async () => ({ status: "CREATED", task: makeTask("task-1") })),
       markDraftFinal: vi.fn(async () => undefined)

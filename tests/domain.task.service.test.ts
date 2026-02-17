@@ -28,7 +28,11 @@ describe("TaskService.createTask", () => {
       findByAssigneeUserId: vi.fn(async () => []),
       listAssignedTasks: vi.fn(async () => []),
       listCreatedTasks: vi.fn(async () => []),
+      findDraftByCreatorAndStep: vi.fn(async () => null),
       findAwaitingDeadlineDraftByCreator: vi.fn(async () => null),
+      updateDraftStepIfExpected: vi.fn(async () => {
+        throw new Error("unused");
+      }),
       updateDraft: vi.fn(async () => {
         throw new Error("unused");
       }),
@@ -106,7 +110,11 @@ describe("TaskService.getMyTasks", () => {
       findByAssigneeUserId,
       listAssignedTasks: vi.fn(async () => []),
       listCreatedTasks: vi.fn(async () => []),
+      findDraftByCreatorAndStep: vi.fn(async () => null),
       findAwaitingDeadlineDraftByCreator: vi.fn(async () => null),
+      updateDraftStepIfExpected: vi.fn(async () => {
+        throw new Error("unused");
+      }),
       updateDraft: vi.fn(async () => {
         throw new Error("unused");
       }),
@@ -154,7 +162,11 @@ describe("TaskService list use-cases", () => {
       findByAssigneeUserId: vi.fn(async () => []),
       listAssignedTasks,
       listCreatedTasks: vi.fn(async () => []),
+      findDraftByCreatorAndStep: vi.fn(async () => null),
       findAwaitingDeadlineDraftByCreator: vi.fn(async () => null),
+      updateDraftStepIfExpected: vi.fn(async () => {
+        throw new Error("unused");
+      }),
       updateDraft: vi.fn(async () => {
         throw new Error("unused");
       }),
@@ -231,7 +243,11 @@ describe("TaskService list use-cases", () => {
       findByAssigneeUserId: vi.fn(async () => []),
       listAssignedTasks: vi.fn(async () => []),
       listCreatedTasks,
+      findDraftByCreatorAndStep: vi.fn(async () => null),
       findAwaitingDeadlineDraftByCreator: vi.fn(async () => null),
+      updateDraftStepIfExpected: vi.fn(async () => {
+        throw new Error("unused");
+      }),
       updateDraft: vi.fn(async () => {
         throw new Error("unused");
       }),
@@ -270,7 +286,11 @@ describe("TaskService list use-cases", () => {
       findByAssigneeUserId: vi.fn(async () => []),
       listAssignedTasks: vi.fn(async () => []),
       listCreatedTasks: vi.fn(async () => []),
+      findDraftByCreatorAndStep: vi.fn(async () => null),
       findAwaitingDeadlineDraftByCreator: vi.fn(async () => null),
+      updateDraftStepIfExpected: vi.fn(async () => {
+        throw new Error("unused");
+      }),
       updateDraft: vi.fn(async () => {
         throw new Error("unused");
       }),
@@ -286,5 +306,149 @@ describe("TaskService list use-cases", () => {
       viewerUserId: "u-1"
     });
     expect(result).toEqual({ status: "NOT_IN_WORKSPACE" });
+  });
+});
+
+describe("TaskService DM draft flow", () => {
+  it("startDmDraft creates draft with dm:* sourceChatId and non-empty sourceMessageId", async () => {
+    const now = new Date("2026-02-16T00:00:00.000Z");
+    const workspaceMemberRepo: WorkspaceMemberRepo = {
+      upsertMember: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      findMember: vi.fn(async () => null),
+      listByWorkspace: vi.fn(async () => []),
+      findLatestWorkspaceIdByUser: vi.fn(async () => null)
+    };
+    const createDraft = vi.fn(async (input: { token: string }) => ({
+      id: "d-1",
+      token: input.token,
+      status: "PENDING" as const,
+      step: "enter_text" as const,
+      createdTaskId: null,
+      workspaceId: "ws-1",
+      sourceChatId: "dm:u-1",
+      sourceMessageId: "source-1",
+      sourceText: "",
+      sourceLink: null,
+      creatorUserId: "u-1",
+      assigneeId: null,
+      priority: null,
+      deadlineAt: null,
+      createdAt: now,
+      updatedAt: now
+    }));
+    const repo: TaskRepo = {
+      create: vi.fn(async (task) => task),
+      createDraft,
+      findDraftByToken: vi.fn(async () => null),
+      findTaskBySource: vi.fn(async () => null),
+      findByAssigneeUserId: vi.fn(async () => []),
+      listAssignedTasks: vi.fn(async () => []),
+      listCreatedTasks: vi.fn(async () => []),
+      findDraftByCreatorAndStep: vi.fn(async () => null),
+      findAwaitingDeadlineDraftByCreator: vi.fn(async () => null),
+      updateDraftStepIfExpected: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      updateDraft: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      createFromDraft: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      markDraftFinal: vi.fn(async () => undefined)
+    };
+    const service = new TaskService({ now: () => now }, repo, workspaceMemberRepo);
+
+    await service.startDmDraft({ workspaceId: "ws-1", creatorUserId: "u-1" });
+    const call = createDraft.mock.calls[0]?.[0] as {
+      sourceChatId: string;
+      sourceMessageId: string;
+      step: string;
+    };
+    expect(call.sourceChatId).toBe("dm:u-1");
+    expect(call.step).toBe("enter_text");
+    expect(call.sourceMessageId.length).toBeGreaterThan(0);
+  });
+
+  it("enter_text transition is guarded and does not advance on stale step", async () => {
+    const now = new Date("2026-02-16T00:00:00.000Z");
+    const workspaceMemberRepo: WorkspaceMemberRepo = {
+      upsertMember: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      findMember: vi.fn(async () => null),
+      listByWorkspace: vi.fn(async () => []),
+      findLatestWorkspaceIdByUser: vi.fn(async () => null)
+    };
+    const updateDraftStepIfExpected = vi.fn(async () => ({
+      updated: false,
+      draft: {
+        id: "d-1",
+        token: "t-1",
+        status: "PENDING" as const,
+        step: "CHOOSE_ASSIGNEE" as const,
+        createdTaskId: null,
+        workspaceId: "ws-1",
+        sourceChatId: "dm:u-1",
+        sourceMessageId: "source-1",
+        sourceText: "text",
+        sourceLink: null,
+        creatorUserId: "u-1",
+        assigneeId: null,
+        priority: null,
+        deadlineAt: null,
+        createdAt: now,
+        updatedAt: now
+      }
+    }));
+    const repo: TaskRepo = {
+      create: vi.fn(async (task) => task),
+      createDraft: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      findDraftByToken: vi.fn(async () => null),
+      findTaskBySource: vi.fn(async () => null),
+      findByAssigneeUserId: vi.fn(async () => []),
+      listAssignedTasks: vi.fn(async () => []),
+      listCreatedTasks: vi.fn(async () => []),
+      findDraftByCreatorAndStep: vi.fn(async () => ({
+        id: "d-1",
+        token: "t-1",
+        status: "PENDING" as const,
+        step: "enter_text" as const,
+        createdTaskId: null,
+        workspaceId: "ws-1",
+        sourceChatId: "dm:u-1",
+        sourceMessageId: "source-1",
+        sourceText: "",
+        sourceLink: null,
+        creatorUserId: "u-1",
+        assigneeId: null,
+        priority: null,
+        deadlineAt: null,
+        createdAt: now,
+        updatedAt: now
+      })),
+      findAwaitingDeadlineDraftByCreator: vi.fn(async () => null),
+      updateDraftStepIfExpected,
+      updateDraft: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      createFromDraft: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      markDraftFinal: vi.fn(async () => undefined)
+    };
+    const service = new TaskService({ now: () => now }, repo, workspaceMemberRepo);
+
+    const result = await service.applyDmDraftText("u-1", "text");
+    expect(result.status).toBe("STALE_STEP");
+    expect(updateDraftStepIfExpected).toHaveBeenCalledWith(
+      "d-1",
+      "enter_text",
+      expect.objectContaining({ step: "CHOOSE_ASSIGNEE", sourceText: "text" })
+    );
   });
 });

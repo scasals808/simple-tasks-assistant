@@ -133,6 +133,7 @@ export class PrismaTaskRepo implements TaskRepo {
   async createDraft(input: {
     token: string;
     workspaceId?: string | null;
+    step?: DraftStep;
     sourceChatId: string;
     sourceMessageId: string;
     sourceText: string;
@@ -143,7 +144,7 @@ export class PrismaTaskRepo implements TaskRepo {
       data: {
         token: input.token,
         status: "PENDING",
-        step: "CHOOSE_ASSIGNEE",
+        step: input.step ?? "CHOOSE_ASSIGNEE",
         workspaceId: input.workspaceId ?? null,
         sourceChatId: input.sourceChatId,
         sourceMessageId: input.sourceMessageId,
@@ -299,10 +300,25 @@ export class PrismaTaskRepo implements TaskRepo {
     return row ? mapDraft(row) : null;
   }
 
+  async findDraftByCreatorAndStep(creatorUserId: string, step: DraftStep): Promise<TaskDraft | null> {
+    const row = await prisma.taskDraft.findFirst({
+      where: {
+        creatorUserId,
+        status: "PENDING",
+        step
+      },
+      orderBy: {
+        updatedAt: "desc"
+      }
+    });
+    return row ? mapDraft(row) : null;
+  }
+
   async updateDraft(
     draftId: string,
     patch: {
       step?: DraftStep;
+      sourceText?: string;
       assigneeId?: string | null;
       priority?: Task["priority"] | null;
       deadlineAt?: Date | null;
@@ -312,6 +328,7 @@ export class PrismaTaskRepo implements TaskRepo {
   ): Promise<TaskDraft> {
     const data: {
       step?: DraftStep;
+      sourceText?: string;
       assigneeId?: string | null;
       priority?: Task["priority"] | null;
       deadlineAt?: Date | null;
@@ -319,6 +336,7 @@ export class PrismaTaskRepo implements TaskRepo {
       createdTaskId?: string | null;
     } = {};
     if (patch.step !== undefined) data.step = patch.step;
+    if (patch.sourceText !== undefined) data.sourceText = patch.sourceText;
     if (patch.assigneeId !== undefined) data.assigneeId = patch.assigneeId;
     if (patch.priority !== undefined) data.priority = patch.priority;
     if (patch.deadlineAt !== undefined) data.deadlineAt = patch.deadlineAt;
@@ -330,6 +348,43 @@ export class PrismaTaskRepo implements TaskRepo {
       data
     });
     return mapDraft(row);
+  }
+
+  async updateDraftStepIfExpected(
+    draftId: string,
+    expectedStep: DraftStep,
+    patch: {
+      step: DraftStep;
+      sourceText?: string;
+      assigneeId?: string | null;
+      priority?: Task["priority"] | null;
+      deadlineAt?: Date | null;
+    }
+  ): Promise<{ updated: boolean; draft: TaskDraft }> {
+    const data: {
+      step: DraftStep;
+      sourceText?: string;
+      assigneeId?: string | null;
+      priority?: Task["priority"] | null;
+      deadlineAt?: Date | null;
+    } = { step: patch.step };
+    if (patch.sourceText !== undefined) data.sourceText = patch.sourceText;
+    if (patch.assigneeId !== undefined) data.assigneeId = patch.assigneeId;
+    if (patch.priority !== undefined) data.priority = patch.priority;
+    if (patch.deadlineAt !== undefined) data.deadlineAt = patch.deadlineAt;
+
+    const result = await prisma.taskDraft.updateMany({
+      where: {
+        id: draftId,
+        step: expectedStep
+      },
+      data
+    });
+    const draft = await prisma.taskDraft.findUnique({ where: { id: draftId } });
+    if (!draft) {
+      throw new Error("Draft not found");
+    }
+    return { updated: result.count === 1, draft: mapDraft(draft) };
   }
 
   async createFromDraft(draft: TaskDraft): Promise<CreateFromDraftResult> {

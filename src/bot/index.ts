@@ -249,12 +249,34 @@ function logTaskList(input: {
   console.log("[bot.task_list]", payload);
 }
 
+function logDmCreateTask(input: {
+  userId: string;
+  workspaceId: string | null;
+  draftToken: string | null;
+  step: string;
+  errorCode?: string | null;
+}): void {
+  const payload = {
+    handler: "dm_create_task",
+    user_id: input.userId,
+    workspaceId: input.workspaceId,
+    draft_token: input.draftToken,
+    step: input.step,
+    error_code: input.errorCode ?? null
+  };
+  if (input.errorCode) {
+    console.warn("[bot.dm_create_task]", payload);
+    return;
+  }
+  console.log("[bot.dm_create_task]", payload);
+}
+
 export function buildMainMenuRows(
   userId: number | undefined,
   adminUserIds: Set<string>
 ): string[][] {
   const isAdminUser = typeof userId === "number" && isAdmin(userId, adminUserIds);
-  const rows: string[][] = [["📥 Мне назначено", "✍️ Я создал"], ["➕ Создать задачу", "ℹ️ Помощь"]];
+  const rows: string[][] = [["📥 Мне назначено", "✍️ Я создал"], ["➕ Новая задача", "ℹ️ Помощь"]];
   if (isAdminUser) {
     rows.push(["Admin"]);
   }
@@ -388,6 +410,64 @@ export function createBot(
     }
   }
 
+  async function buildAssigneeKeyboardByWorkspace(
+    fallbackUserId: string,
+    tokenForTask: string,
+    workspaceId: string | null
+  ): Promise<unknown> {
+    if (!workspaceId) {
+      return Markup.inlineKeyboard([
+        [Markup.button.callback(fallbackUserId, `draft_assignee:${tokenForTask}:${fallbackUserId}`)]
+      ]);
+    }
+    const members = await workspaceMemberService.listWorkspaceMembers(workspaceId);
+    const rows = members.map((member) => [
+      Markup.button.callback(
+        `${member.userId} (${member.role})`,
+        `draft_assignee:${tokenForTask}:${member.userId}`
+      )
+    ]);
+    return Markup.inlineKeyboard(
+      rows.length > 0
+        ? rows
+        : [[Markup.button.callback(fallbackUserId, `draft_assignee:${tokenForTask}:${fallbackUserId}`)]]
+    );
+  }
+
+  async function handleDmCreateTask(ctx: {
+    chat: { type: string };
+    from: { id: number };
+    reply(text: string, extra?: unknown): Promise<unknown>;
+  }): Promise<void> {
+    if (ctx.chat.type !== "private") {
+      return;
+    }
+    const userId = String(ctx.from.id);
+    const workspaceId = await workspaceMemberService.findLatestWorkspaceIdForUser(userId);
+    if (!workspaceId) {
+      logDmCreateTask({
+        userId,
+        workspaceId: null,
+        draftToken: null,
+        step: "start",
+        errorCode: "NOT_IN_WORKSPACE"
+      });
+      await ctx.reply("You are not connected to a team. Ask for invite link.");
+      return;
+    }
+    const draft = await taskService.startDmDraft({
+      workspaceId,
+      creatorUserId: userId
+    });
+    logDmCreateTask({
+      userId,
+      workspaceId,
+      draftToken: draft.token,
+      step: "enter_text"
+    });
+    await ctx.reply("Send task text in one message.");
+  }
+
   bot.start(async (ctx) => {
     if (ctx.chat.type !== "private") {
       return;
@@ -441,7 +521,7 @@ export function createBot(
     );
   });
 
-  bot.hears(["📥 Мне назначено", "✍️ Я создал", "➕ Создать задачу", "ℹ️ Помощь"], async (ctx) => {
+  bot.hears(["📥 Мне назначено", "✍️ Я создал", "➕ Новая задача", "ℹ️ Помощь"], async (ctx) => {
     if (ctx.chat.type !== "private") {
       return;
     }
@@ -466,7 +546,27 @@ export function createBot(
       );
       return;
     }
+    if (text === "➕ Новая задача") {
+      await handleDmCreateTask(
+        ctx as unknown as {
+          chat: { type: string };
+          from: { id: number };
+          reply(text: string, extra?: unknown): Promise<unknown>;
+        }
+      );
+      return;
+    }
     await ctx.reply("Not implemented yet");
+  });
+
+  bot.command("new_task", async (ctx) => {
+    await handleDmCreateTask(
+      ctx as unknown as {
+        chat: { type: string };
+        from: { id: number };
+        reply(text: string, extra?: unknown): Promise<unknown>;
+      }
+    );
   });
 
   bot.command("assigned", async (ctx) => {
@@ -1041,6 +1141,33 @@ export function createBot(
     const message = ctx.message as { text?: string };
     const text = message.text?.trim() ?? "";
     if (!text || text.startsWith("/")) {
+      return;
+    }
+
+    const dmDraftTextResult = await taskService.applyDmDraftText(String(ctx.from.id), text);
+    if (dmDraftTextResult.status === "UPDATED" || dmDraftTextResult.status === "STALE_STEP") {
+      const draft = dmDraftTextResult.draft;
+      if (draft.step === "CHOOSE_ASSIGNEE") {
+        const keyboard = await buildAssigneeKeyboardByWorkspace(
+          String(ctx.from.id),
+          draft.token,
+          draft.workspaceId
+        );
+        await ctx.reply("Choose assignee", keyboard as never);
+        return;
+      }
+      if (draft.step === "CHOOSE_PRIORITY") {
+        await ctx.reply("Choose priority", priorityKeyboard(draft.token));
+        return;
+      }
+      if (draft.step === "CHOOSE_DEADLINE") {
+        await ctx.reply("Choose deadline", deadlineKeyboard(draft.token));
+        return;
+      }
+      if (draft.step === "CONFIRM") {
+        await ctx.reply("Confirm task creation", confirmKeyboard(draft.token));
+        return;
+      }
       return;
     }
 
