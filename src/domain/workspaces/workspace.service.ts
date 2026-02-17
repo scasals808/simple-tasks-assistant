@@ -12,6 +12,10 @@ function isUniqueViolation(error: unknown): boolean {
 export class WorkspaceService {
   constructor(private readonly workspaceRepo: WorkspaceRepo) {}
 
+  async findWorkspaceById(id: string): Promise<Workspace | null> {
+    return this.workspaceRepo.findById(id);
+  }
+
   async findWorkspaceByChatId(chatId: string): Promise<Workspace | null> {
     return this.workspaceRepo.findByChatId(chatId);
   }

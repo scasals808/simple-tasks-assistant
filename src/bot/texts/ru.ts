@@ -69,6 +69,12 @@ export const ru = {
     nonceExists: "Клик уже обработан.",
     taskNotFound: "Задача недоступна."
   },
+  ownerNotification: {
+    title: (title: string) => `📝 На проверку: ${title}`,
+    assignee: (assignee: string) => `Исполнитель: ${assignee}`,
+    priority: (priority: string) => `Приоритет: ${priority}`,
+    deadline: (deadline: string) => `Срок: ${deadline}`
+  },
   buttons: {
     context: (title: string) => `📎 Контекст: ${title}`,
     fallbackAssignee: (userId: string) => `id:${userId}`,
@@ -77,6 +83,8 @@ export const ru = {
     deadlineNone: "Без срока",
     deadlineManual: "Ввести дату (ГГГГ-ММ-ДД)",
     create: "Создать",
+    openTask: "📎 Открыть задачу",
+    contextPlain: "📎 Контекст",
     adminCreateTeam: "Создать команду",
     adminGenerateInvite: "Ссылка-приглашение",
     submitForReview: "✅ Готово"

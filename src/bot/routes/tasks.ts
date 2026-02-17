@@ -3,7 +3,7 @@ import { Markup, type Telegraf } from "telegraf";
 import type { BotDeps } from "../types.js";
 import { ru } from "../texts/ru.js";
 import { buildSourceLink, taskActionsKeyboard } from "../ui/keyboards.js";
-import { renderTaskCard, renderTaskLine, renderTaskListHeader } from "../ui/messages.js";
+import { formatDueDate, renderTaskCard, renderTaskLine, renderTaskListHeader, shortenText } from "../ui/messages.js";
 import { logDmCreateTask, logGroupTask, logStep, logTaskList } from "./logging.js";
 
 export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
@@ -23,6 +23,58 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
       await ctx.editMessageText(text, replyMarkup ? { reply_markup: replyMarkup } : undefined);
     } catch {
       await ctx.reply(text, replyMarkup ? { reply_markup: replyMarkup } : undefined);
+    }
+  }
+
+  async function notifyOwnerOnReviewSubmitted(
+    ctx: { telegram: { sendMessage(chatId: string, text: string, extra?: unknown): Promise<unknown> } },
+    input: {
+      workspaceId: string | null;
+      taskId: string;
+      sourceText: string;
+      assigneeUserId: string;
+      priority: string;
+      deadlineAt: Date | null;
+    }
+  ): Promise<void> {
+    if (!input.workspaceId) {
+      return;
+    }
+
+    const workspace = await deps.workspaceService.findWorkspaceById(input.workspaceId);
+    if (!workspace?.ownerUserId) {
+      return;
+    }
+
+    const title = shortenText(input.sourceText, 64);
+    const text = [
+      ru.ownerNotification.title(title),
+      ru.ownerNotification.assignee(input.assigneeUserId),
+      ru.ownerNotification.priority(input.priority),
+      ru.ownerNotification.deadline(formatDueDate(input.deadlineAt))
+    ].join("\n");
+
+    const keyboard = Markup.inlineKeyboard([
+      [
+        Markup.button.callback(ru.buttons.openTask, `task_open:${input.taskId}`),
+        Markup.button.callback(ru.buttons.contextPlain, `task_context:${input.taskId}`)
+      ]
+    ]);
+
+    try {
+      await ctx.telegram.sendMessage(workspace.ownerUserId, text, keyboard);
+    } catch (error: unknown) {
+      const err = error as { response?: { error_code?: number } };
+      const errorCode = err.response?.error_code ?? null;
+      if (errorCode === 400 || errorCode === 403) {
+        console.warn("[bot.owner_notify.failed]", {
+          ownerId: workspace.ownerUserId,
+          taskId: input.taskId,
+          error_code: errorCode
+        });
+        return;
+      }
+      throw error;
     }
   }
 
@@ -474,6 +526,14 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
           true
         ).reply_markup
       );
+      await notifyOwnerOnReviewSubmitted(ctx, {
+        workspaceId: result.task.workspaceId,
+        taskId: result.task.id,
+        sourceText: result.task.sourceText,
+        assigneeUserId: result.task.assigneeUserId,
+        priority: result.task.priority,
+        deadlineAt: result.task.deadlineAt
+      });
       await ctx.reply(ru.submitForReview.success);
       return;
     }
