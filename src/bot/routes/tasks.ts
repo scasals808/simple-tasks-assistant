@@ -109,6 +109,35 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     }
   }
 
+  async function notifyReassignUser(
+    ctx: { telegram: { sendMessage(chatId: string, text: string, extra?: unknown): Promise<unknown> } },
+    input: {
+      userId: string;
+      taskId: string;
+      text: string;
+      withOpenTaskButton: boolean;
+    }
+  ): Promise<void> {
+    const keyboard = input.withOpenTaskButton
+      ? Markup.inlineKeyboard([[Markup.button.callback(ru.buttons.openTask, `task_open:${input.taskId}`)]])
+      : undefined;
+    try {
+      await ctx.telegram.sendMessage(input.userId, input.text, keyboard);
+    } catch (error: unknown) {
+      const err = error as { response?: { error_code?: number } };
+      const errorCode = err.response?.error_code ?? null;
+      if (errorCode === 400 || errorCode === 403) {
+        console.warn("[bot.reassign_notify.failed]", {
+          userId: input.userId,
+          taskId: input.taskId,
+          error_code: errorCode
+        });
+        return;
+      }
+      throw error;
+    }
+  }
+
   async function canOwnerReviewTask(task: { workspaceId: string | null }, viewerUserId: string): Promise<boolean> {
     if (!task.workspaceId) {
       return false;
@@ -1065,6 +1094,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     const nonce = ctx.match[3];
     await ctx.answerCbQuery();
     const viewerUserId = String(ctx.from.id);
+    const before = await deps.taskService.getTaskForViewer(taskId, viewerUserId);
     const result = await deps.taskService.reassignTask({
       taskId,
       actorUserId: viewerUserId,
@@ -1091,6 +1121,22 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     if (!result.changed) {
       await ctx.reply(ru.reassign.noChanges);
       return;
+    }
+    const title = shortenText(result.task.sourceText, 64);
+    await notifyReassignUser(ctx, {
+      userId: result.task.assigneeUserId,
+      taskId: result.task.id,
+      text: ru.reassignNotification.assignedToYou(title),
+      withOpenTaskButton: true
+    });
+    const previousAssigneeUserId = before?.assigneeUserId ?? null;
+    if (previousAssigneeUserId && previousAssigneeUserId !== result.task.assigneeUserId) {
+      await notifyReassignUser(ctx, {
+        userId: previousAssigneeUserId,
+        taskId: result.task.id,
+        text: ru.reassignNotification.reassignedFromYou(title),
+        withOpenTaskButton: false
+      });
     }
     if (result.task.workspaceId) {
       const assignee = await deps.workspaceMemberService.findMember(

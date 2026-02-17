@@ -114,6 +114,10 @@ export const ru = {
     taskClosed: "Закрытую задачу нельзя переназначить.",
     taskNotFound: "Задача недоступна."
   },
+  reassignNotification: {
+    assignedToYou: (title: string) => `📌 Вам назначили задачу: ${title}`,
+    reassignedFromYou: (title: string) => `ℹ️ Задача переназначена: ${title}`
+  },
   ownerNotification: {
     title: (title: string) => `📝 На проверку: ${title}`,
     returnedToWork: (title: string) => `↩️ Исполнитель вернул задачу в работу: ${title}`,
