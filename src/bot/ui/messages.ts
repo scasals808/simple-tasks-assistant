@@ -34,10 +34,10 @@ export function renderTaskLine(task: {
   const statusRu =
     task.status === "ACTIVE"
       ? ru.status.active
-      : task.status === "DONE"
-        ? ru.status.done
-        : task.status === "ARCHIVED"
-          ? ru.status.archived
+      : task.status === "ON_REVIEW"
+        ? ru.status.onReview
+        : task.status === "CLOSED"
+          ? ru.status.closed
           : ru.status.unknown;
   const color = task.priority === "P1" ? "🔴" : task.priority === "P2" ? "🟠" : "🟡";
   const title = shortenText(task.sourceText, 40);
@@ -46,4 +46,36 @@ export function renderTaskLine(task: {
 
 export function shortTaskTitle(value: string): string {
   return shortenText(value, 20);
+}
+
+function shortTaskId(value: string): string {
+  return value.slice(0, 8);
+}
+
+export function renderTaskCard(task: {
+  id: string;
+  assigneeUserId: string;
+  priority: string;
+  deadlineAt: Date | null;
+  status: string;
+  sourceText: string;
+}): string {
+  const statusRu =
+    task.status === "ACTIVE"
+      ? ru.status.active
+      : task.status === "ON_REVIEW"
+        ? ru.status.onReview
+        : task.status === "CLOSED"
+          ? ru.status.closed
+          : ru.status.unknown;
+
+  return [
+    ru.wizard.created,
+    `${ru.taskCard.title} ${ru.taskCard.idShort(shortTaskId(task.id))}`,
+    ru.taskCard.assignee(task.assigneeUserId),
+    ru.taskCard.priority(task.priority),
+    ru.taskCard.deadline(formatDueDate(task.deadlineAt)),
+    ru.taskCard.status(statusRu),
+    ru.taskCard.text(shortenText(task.sourceText, 220))
+  ].join("\n");
 }

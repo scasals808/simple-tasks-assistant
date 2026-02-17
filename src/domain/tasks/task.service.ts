@@ -4,11 +4,13 @@ import type {
   TaskDraft,
   TaskRepo
 } from "../ports/task.repo.port.js";
+import type { TaskActionRepo } from "../ports/task-action.repo.port.js";
 import type { WorkspaceMemberRepo } from "../ports/workspace-member.repo.port.js";
 import type { Task, TaskPriority } from "./task.types.js";
 
 export type CreateTaskInput = {
   id: string;
+  workspaceId?: string | null;
   sourceChatId: string;
   sourceMessageId: string;
   sourceText: string;
@@ -73,7 +75,8 @@ export class TaskService {
   constructor(
     private readonly clock: Clock,
     private readonly taskRepo: TaskRepo,
-    private readonly workspaceMemberRepo: WorkspaceMemberRepo
+    private readonly workspaceMemberRepo: WorkspaceMemberRepo,
+    private readonly taskActionRepo: TaskActionRepo
   ) {}
 
   async listAssignedTasks(input: {
@@ -109,6 +112,7 @@ export class TaskService {
 
     const task: Task = {
       id: input.id,
+      workspaceId: input.workspaceId ?? null,
       sourceChatId: input.sourceChatId,
       sourceMessageId: input.sourceMessageId,
       sourceText: input.sourceText,
@@ -118,6 +122,7 @@ export class TaskService {
       priority: input.priority,
       deadlineAt: input.deadlineAt,
       status: "ACTIVE",
+      submittedForReviewAt: null,
       createdAt: now,
       updatedAt: now
     };
@@ -348,6 +353,47 @@ export class TaskService {
 
     const result = await this.taskRepo.createFromDraft(draft);
     await this.taskRepo.markDraftFinal(draft.id, result.task.id);
+    return result;
+  }
+
+  async submitForReview(input: {
+    taskId: string;
+    actorUserId: string;
+    nonce: string;
+  }): Promise<
+    | { status: "NOT_FOUND" }
+    | { status: "NOT_IN_WORKSPACE" }
+    | { status: "NOT_ASSIGNEE" } 
+    | { status: "ALREADY_ON_REVIEW" }
+    | { status: "NONCE_EXISTS" }
+    | { status: "SUCCESS"; task: Task }
+  > {
+    // Check if nonce already exists (idempotency)
+    const existingAction = await this.taskActionRepo.findByNonce(input.nonce);
+    if (existingAction) {
+      return { status: "NONCE_EXISTS" };
+    }
+
+    // Use transactional repo method that handles all validations and updates
+    const result = await this.taskRepo.submitForReviewTransactional(
+      input.taskId,
+      input.actorUserId, 
+      input.nonce
+    );
+
+    if (result.status === "SUCCESS") {
+      // Additional workspace membership check 
+      if (result.task.workspaceId) {
+        const membership = await this.workspaceMemberRepo.findMember(
+          result.task.workspaceId,
+          input.actorUserId
+        );
+        if (!membership) {
+          return { status: "NOT_IN_WORKSPACE" };
+        }
+      }
+    }
+
     return result;
   }
 }

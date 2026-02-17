@@ -82,4 +82,16 @@ export interface TaskRepo {
   ): Promise<{ updated: boolean; draft: TaskDraft }>;
   createFromDraft(draft: TaskDraft): Promise<CreateFromDraftResult>;
   markDraftFinal(draftId: string, taskId: string): Promise<void>;
+  
+  submitForReviewTransactional(
+    taskId: string,
+    actorUserId: string,
+    nonce: string
+  ): Promise<
+    | { status: "NOT_FOUND" }
+    | { status: "NOT_ASSIGNEE" }
+    | { status: "ALREADY_ON_REVIEW" }
+    | { status: "NONCE_EXISTS" }
+    | { status: "SUCCESS"; task: Task }
+  >;
 }

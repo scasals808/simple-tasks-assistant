@@ -3,10 +3,25 @@ import { Markup, type Telegraf } from "telegraf";
 import type { BotDeps } from "../types.js";
 import { ru } from "../texts/ru.js";
 import { buildSourceLink } from "../ui/keyboards.js";
-import { renderTaskLine, renderTaskListHeader, shortTaskTitle } from "../ui/messages.js";
+import { renderTaskCard, renderTaskLine, renderTaskListHeader, shortTaskTitle } from "../ui/messages.js";
 import { logDmCreateTask, logGroupTask, logStep, logTaskList } from "./logging.js";
 
 export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
+  async function updateOrReply(
+    ctx: {
+      editMessageText(text: string, extra?: { reply_markup?: unknown }): Promise<unknown>;
+      reply(text: string, extra?: unknown): Promise<unknown>;
+    },
+    text: string,
+    replyMarkup?: unknown
+  ): Promise<void> {
+    try {
+      await ctx.editMessageText(text, replyMarkup ? { reply_markup: replyMarkup } : undefined);
+    } catch {
+      await ctx.reply(text, replyMarkup ? { reply_markup: replyMarkup } : undefined);
+    }
+  }
+
   async function handleTaskList(
     ctx: {
       from: { id: number; first_name?: string; last_name?: string; username?: string };
@@ -404,5 +419,40 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
 
     const fallback = task.sourceText.length > 500 ? `${task.sourceText.slice(0, 500)}...` : task.sourceText;
     await ctx.reply(`${ru.taskList.contextMissingIntro}\n${fallback || "-"}`);
+  });
+
+  bot.action(/^task_submit_review:([^:]+):([^:]+)$/, async (ctx) => {
+    const taskId = ctx.match[1];
+    const nonce = ctx.match[2];
+    await ctx.answerCbQuery();
+
+    const result = await deps.taskService.submitForReview({
+      taskId,
+      actorUserId: String(ctx.from.id),
+      nonce
+    });
+
+    if (result.status === "SUCCESS") {
+      await updateOrReply(ctx, renderTaskCard(result.task), Markup.inlineKeyboard([]).reply_markup);
+      await ctx.reply(ru.submitForReview.success);
+      return;
+    }
+    if (result.status === "ALREADY_ON_REVIEW") {
+      await ctx.reply(ru.submitForReview.alreadyOnReview);
+      return;
+    }
+    if (result.status === "NOT_ASSIGNEE") {
+      await ctx.reply(ru.submitForReview.notAllowed);
+      return;
+    }
+    if (result.status === "NOT_IN_WORKSPACE") {
+      await ctx.reply(ru.submitForReview.notInWorkspace);
+      return;
+    }
+    if (result.status === "NONCE_EXISTS") {
+      await ctx.reply(ru.submitForReview.nonceExists);
+      return;
+    }
+    await ctx.reply(ru.submitForReview.taskNotFound);
   });
 }

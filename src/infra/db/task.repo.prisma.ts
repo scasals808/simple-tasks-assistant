@@ -12,6 +12,7 @@ import { prisma } from "./prisma.js";
 function mapTask(row: {
   id: string;
   sourceDraftId: string;
+  workspaceId: string | null;
   sourceChatId: string;
   sourceMessageId: string;
   sourceText: string;
@@ -21,11 +22,13 @@ function mapTask(row: {
   priority: string;
   deadlineAt: Date | null;
   status: string;
+  submittedForReviewAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }): Task {
   return {
     id: row.id,
+    workspaceId: row.workspaceId,
     sourceChatId: row.sourceChatId,
     sourceMessageId: row.sourceMessageId,
     sourceText: row.sourceText,
@@ -35,6 +38,7 @@ function mapTask(row: {
     priority: row.priority as Task["priority"],
     deadlineAt: row.deadlineAt,
     status: row.status as Task["status"],
+    submittedForReviewAt: row.submittedForReviewAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
   };
@@ -113,6 +117,7 @@ export class PrismaTaskRepo implements TaskRepo {
       data: {
         id: task.id,
         sourceDraftId: task.id,
+        workspaceId: task.workspaceId,
         sourceChatId: task.sourceChatId,
         sourceMessageId: task.sourceMessageId,
         sourceText: task.sourceText,
@@ -122,6 +127,7 @@ export class PrismaTaskRepo implements TaskRepo {
         priority: task.priority,
         deadlineAt: task.deadlineAt,
         status: task.status,
+        submittedForReviewAt: task.submittedForReviewAt,
         createdAt: task.createdAt,
         updatedAt: task.updatedAt
       }
@@ -217,6 +223,7 @@ export class PrismaTaskRepo implements TaskRepo {
       Array<{
         id: string;
         sourceDraftId: string;
+        workspaceId: string | null;
         sourceChatId: string;
         sourceMessageId: string;
         sourceText: string;
@@ -226,6 +233,7 @@ export class PrismaTaskRepo implements TaskRepo {
         priority: string;
         deadlineAt: Date | null;
         status: string;
+        submittedForReviewAt: Date | null;
         createdAt: Date;
         updatedAt: Date;
       }>
@@ -233,6 +241,7 @@ export class PrismaTaskRepo implements TaskRepo {
       SELECT
         t."id",
         t."sourceDraftId",
+        t."workspaceId",
         t."sourceChatId",
         t."sourceMessageId",
         t."sourceText",
@@ -242,6 +251,7 @@ export class PrismaTaskRepo implements TaskRepo {
         t."priority",
         t."deadlineAt",
         t."status",
+        t."submittedForReviewAt",
         t."createdAt",
         t."updatedAt"
       FROM "Task" t
@@ -267,6 +277,7 @@ export class PrismaTaskRepo implements TaskRepo {
       Array<{
         id: string;
         sourceDraftId: string;
+        workspaceId: string | null;
         sourceChatId: string;
         sourceMessageId: string;
         sourceText: string;
@@ -276,6 +287,7 @@ export class PrismaTaskRepo implements TaskRepo {
         priority: string;
         deadlineAt: Date | null;
         status: string;
+        submittedForReviewAt: Date | null;
         createdAt: Date;
         updatedAt: Date;
       }>
@@ -283,6 +295,7 @@ export class PrismaTaskRepo implements TaskRepo {
       SELECT
         t."id",
         t."sourceDraftId",
+        t."workspaceId",
         t."sourceChatId",
         t."sourceMessageId",
         t."sourceText",
@@ -292,6 +305,7 @@ export class PrismaTaskRepo implements TaskRepo {
         t."priority",
         t."deadlineAt",
         t."status",
+        t."submittedForReviewAt",
         t."createdAt",
         t."updatedAt"
       FROM "Task" t
@@ -427,7 +441,8 @@ export class PrismaTaskRepo implements TaskRepo {
           assigneeUserId: draft.assigneeId ?? draft.creatorUserId,
           priority: draft.priority ?? "P2",
           deadlineAt: draft.deadlineAt,
-          status: "ACTIVE"
+          status: "ACTIVE",
+          submittedForReviewAt: null
         }
       });
       return { status: "CREATED", task: mapTask(row) };
@@ -465,6 +480,76 @@ export class PrismaTaskRepo implements TaskRepo {
         step: "FINAL",
         createdTaskId: taskId
       }
+    });
+  }
+
+  async submitForReviewTransactional(
+    taskId: string,
+    actorUserId: string,
+    nonce: string
+  ): Promise<
+    | { status: "NOT_FOUND" }
+    | { status: "NOT_ASSIGNEE" }
+    | { status: "ALREADY_ON_REVIEW" }
+    | { status: "NONCE_EXISTS" }
+    | { status: "SUCCESS"; task: Task }
+  > {
+    return await prisma.$transaction(async (tx) => {
+      // Check if nonce already exists
+      const existingAction = await tx.taskAction.findUnique({
+        where: { nonce }
+      });
+      if (existingAction) {
+        return { status: "NONCE_EXISTS" as const };
+      }
+
+      // SELECT FOR UPDATE to lock the task
+      const task = await tx.task.findUnique({
+        where: { id: taskId }
+      });
+      
+      if (!task) {
+        return { status: "NOT_FOUND" as const };
+      }
+
+      // Check actor is assignee
+      if (task.assigneeUserId !== actorUserId) {
+        return { status: "NOT_ASSIGNEE" as const };
+      }
+
+      // Check current status (idempotent if already ON_REVIEW)
+      if (task.status === "ON_REVIEW") {
+        return { status: "ALREADY_ON_REVIEW" as const };
+      }
+
+      // Verify status is ACTIVE
+      if (task.status !== "ACTIVE") {
+        return { status: "NOT_FOUND" as const };
+      }
+
+      const now = new Date();
+
+      // Create TaskAction record
+      await tx.taskAction.create({
+        data: {
+          taskId,
+          actorUserId,
+          type: "SUBMIT_FOR_REVIEW",
+          nonce
+        }
+      });
+
+      // Update task status
+      const updatedTask = await tx.task.update({
+        where: { id: taskId },
+        data: {
+          status: "ON_REVIEW",
+          submittedForReviewAt: now,
+          updatedAt: now
+        }
+      });
+
+      return { status: "SUCCESS" as const, task: mapTask(updatedTask) };
     });
   }
 }

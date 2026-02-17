@@ -3,7 +3,13 @@ import { Markup, type Telegraf } from "telegraf";
 import type { TaskPriority } from "../../domain/tasks/task.types.js";
 import type { BotDeps } from "../types.js";
 import { ru } from "../texts/ru.js";
-import { confirmKeyboard, deadlineKeyboard, priorityKeyboard } from "../ui/keyboards.js";
+import { renderTaskCard } from "../ui/messages.js";
+import {
+  confirmKeyboard,
+  deadlineKeyboard,
+  priorityKeyboard,
+  submitForReviewKeyboard
+} from "../ui/keyboards.js";
 import { logStep } from "./logging.js";
 
 async function updateOrReply(
@@ -23,6 +29,10 @@ async function updateOrReply(
 
 function isTaskPriority(value: string): value is TaskPriority {
   return value === "P1" || value === "P2" || value === "P3";
+}
+
+function createSubmitNonce(): string {
+  return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function assigneeLabel(member: {
@@ -215,10 +225,16 @@ export function registerDraftWizardRoutes(bot: Telegraf, deps: BotDeps): void {
     }
 
     logStep(ctx, "draft_confirm", tokenForTask, "step_final", callbackChatId, callbackMsgId);
+    const canSubmitForReview =
+      result.task.assigneeUserId === String(ctx.from.id) && result.task.status === "ACTIVE";
+    const replyMarkup = canSubmitForReview
+      ? submitForReviewKeyboard(result.task.id, createSubmitNonce()).reply_markup
+      : Markup.inlineKeyboard([]).reply_markup;
+
     await updateOrReply(
       ctx,
-      ru.wizard.created(result.task.id),
-      Markup.inlineKeyboard([]).reply_markup
+      renderTaskCard(result.task),
+      replyMarkup
     );
   });
 

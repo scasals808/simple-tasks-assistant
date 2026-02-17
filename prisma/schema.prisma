@@ -19,9 +19,10 @@ model Task {
   assigneeUserId  String
   priority        String
   deadlineAt      DateTime?
-  status          String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  status               String
+  submittedForReviewAt DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   sourceDraft TaskDraft @relation("TaskSourceDraft", fields: [sourceDraftId], references: [id])
   createdByDraft TaskDraft[] @relation("TaskDraftCreatedTask")

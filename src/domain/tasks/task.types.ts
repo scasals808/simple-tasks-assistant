@@ -4,6 +4,7 @@ export type TaskStatus = "ACTIVE" | "ON_REVIEW" | "CLOSED";
 
 export type Task = {
   id: string;
+  workspaceId: string | null;
   sourceChatId: string;
   sourceMessageId: string;
   sourceText: string;
@@ -13,6 +14,7 @@ export type Task = {
   priority: TaskPriority;
   deadlineAt: Date | null;
   status: TaskStatus;
+  submittedForReviewAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };

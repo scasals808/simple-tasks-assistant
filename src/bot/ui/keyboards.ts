@@ -61,3 +61,9 @@ export function buildSourceLink(
 
   return null;
 }
+
+export function submitForReviewKeyboard(taskId: string, nonce: string) {
+  return Markup.inlineKeyboard([
+    [Markup.button.callback(ru.buttons.submitForReview, `task_submit_review:${taskId}:${nonce}`)]
+  ]);
+}
