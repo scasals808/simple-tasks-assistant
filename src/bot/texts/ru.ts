@@ -58,6 +58,7 @@ export const ru = {
   common: {
     notImplemented: "Пока не реализовано.",
     taskNotFound: "Задача не найдена.",
+    noAccess: "Нет доступа к этой задаче.",
     actionFailed: "Не удалось выполнить действие. Попробуйте еще раз."
   },
   status: {

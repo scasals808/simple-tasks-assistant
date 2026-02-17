@@ -836,7 +836,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     const viewerUserId = String(ctx.from.id);
     const task = await deps.taskService.getTaskForViewer(taskId, viewerUserId);
     if (!task) {
-      await ctx.reply(ru.common.taskNotFound);
+      await ctx.reply(ru.common.noAccess);
       return;
     }
 
@@ -851,7 +851,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     const viewerUserId = String(ctx.from.id);
     const task = await deps.taskService.getTaskForViewer(taskId, viewerUserId);
     if (!task) {
-      await ctx.reply(ru.submitForReview.taskNotFound);
+      await ctx.reply(ru.common.noAccess);
       return;
     }
     const isSelfTask = task.creatorUserId === task.assigneeUserId && task.assigneeUserId === viewerUserId;
@@ -936,7 +936,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     const viewerUserId = String(ctx.from.id);
     const task = await deps.taskService.getTaskForViewer(taskId, viewerUserId);
     if (!task) {
-      await ctx.reply(ru.common.taskNotFound);
+      await ctx.reply(ru.common.noAccess);
       return;
     }
     await replyTaskCardWithActions(ctx, task, viewerUserId);
@@ -1027,7 +1027,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     const viewerUserId = String(ctx.from.id);
     const task = await deps.taskService.getTaskForViewer(taskId, viewerUserId);
     if (!task) {
-      await ctx.reply(ru.common.taskNotFound);
+      await ctx.reply(ru.common.noAccess);
       return;
     }
     await replyTaskCardWithActions(ctx, task, viewerUserId);
@@ -1039,7 +1039,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     const viewerUserId = String(ctx.from.id);
     const task = await deps.taskService.getTaskForViewer(taskId, viewerUserId);
     if (!task) {
-      await ctx.reply(ru.reassign.taskNotFound);
+      await ctx.reply(ru.common.noAccess);
       return;
     }
     if (!task.workspaceId || !(await canOwnerReviewTask(task, viewerUserId))) {
@@ -1072,7 +1072,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     const viewerUserId = String(ctx.from.id);
     const task = await deps.taskService.getTaskForViewer(taskId, viewerUserId);
     if (!task) {
-      await ctx.reply(ru.reassign.taskNotFound);
+      await ctx.reply(ru.common.noAccess);
       return;
     }
     if (!task.workspaceId || !(await canOwnerReviewTask(task, viewerUserId))) {
@@ -1163,7 +1163,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     const viewerUserId = String(ctx.from.id);
     const task = await deps.taskService.getTaskForViewer(taskId, viewerUserId);
     if (!task) {
-      await ctx.reply(ru.reassign.taskNotFound);
+      await ctx.reply(ru.common.noAccess);
       return;
     }
     await replyTaskCardWithActions(ctx, task, viewerUserId);

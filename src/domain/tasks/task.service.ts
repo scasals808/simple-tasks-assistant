@@ -80,6 +80,13 @@ export class TaskService {
     private readonly taskActionRepo: TaskActionRepo
   ) {}
 
+  private async hasActiveWorkspaceMembership(workspaceId: string | null, userId: string): Promise<boolean> {
+    if (!workspaceId) {
+      return true;
+    }
+    return requireActiveMembership(this.workspaceMemberRepo, workspaceId, userId);
+  }
+
   async listAssignedTasks(input: {
     workspaceId: string;
     viewerUserId: string;
@@ -219,6 +226,9 @@ export class TaskService {
     if (!draft) {
       return { status: "NOT_FOUND" };
     }
+    if (!(await this.hasActiveWorkspaceMembership(draft.workspaceId, creatorUserId))) {
+      return { status: "NOT_FOUND" };
+    }
     const trimmed = sourceText.trim();
     if (!trimmed) {
       return { status: "NOT_FOUND" };
@@ -242,6 +252,9 @@ export class TaskService {
     if (!task) {
       return null;
     }
+    if (!(await this.hasActiveWorkspaceMembership(task.workspaceId, viewerUserId))) {
+      return null;
+    }
     if (task.creatorUserId === viewerUserId || task.assigneeUserId === viewerUserId) {
       return task;
     }
@@ -258,6 +271,9 @@ export class TaskService {
   async startDraftWizard(token: string, requesterUserId: string): Promise<StartDraftWizardResult> {
     const draft = await this.taskRepo.findDraftByToken(token);
     if (!draft || draft.creatorUserId !== requesterUserId) {
+      return { status: "NOT_FOUND" };
+    }
+    if (!(await this.hasActiveWorkspaceMembership(draft.workspaceId, requesterUserId))) {
       return { status: "NOT_FOUND" };
     }
 
@@ -277,6 +293,9 @@ export class TaskService {
   ): Promise<DraftUpdateResult> {
     const draft = await this.taskRepo.findDraftByToken(token);
     if (!draft || draft.creatorUserId !== requesterUserId) {
+      return { status: "NOT_FOUND" };
+    }
+    if (!(await this.hasActiveWorkspaceMembership(draft.workspaceId, requesterUserId))) {
       return { status: "NOT_FOUND" };
     }
 
@@ -301,6 +320,9 @@ export class TaskService {
     if (!draft || draft.creatorUserId !== requesterUserId) {
       return { status: "NOT_FOUND" };
     }
+    if (!(await this.hasActiveWorkspaceMembership(draft.workspaceId, requesterUserId))) {
+      return { status: "NOT_FOUND" };
+    }
 
     const existing = await this.taskRepo.findTaskBySource(draft.sourceChatId, draft.sourceMessageId);
     if (existing) {
@@ -321,6 +343,9 @@ export class TaskService {
   ): Promise<DraftUpdateResult> {
     const draft = await this.taskRepo.findDraftByToken(token);
     if (!draft || draft.creatorUserId !== requesterUserId) {
+      return { status: "NOT_FOUND" };
+    }
+    if (!(await this.hasActiveWorkspaceMembership(draft.workspaceId, requesterUserId))) {
       return { status: "NOT_FOUND" };
     }
 
@@ -359,6 +384,9 @@ export class TaskService {
     if (!draft) {
       return { status: "NOT_FOUND" };
     }
+    if (!(await this.hasActiveWorkspaceMembership(draft.workspaceId, requesterUserId))) {
+      return { status: "NOT_FOUND" };
+    }
 
     const parsed = parseYyyyMmDdToDeadline(dateText.trim());
     if (!parsed) {
@@ -378,6 +406,9 @@ export class TaskService {
   ): Promise<CreateFromDraftResult | null> {
     const draft = await this.taskRepo.findDraftByToken(token);
     if (!draft || draft.creatorUserId !== requesterUserId) {
+      return null;
+    }
+    if (!(await this.hasActiveWorkspaceMembership(draft.workspaceId, requesterUserId))) {
       return null;
     }
     if (draft.status === "FINAL" && draft.createdTaskId) {

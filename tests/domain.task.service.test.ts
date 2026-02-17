@@ -15,8 +15,20 @@ describe("TaskService.createTask", () => {
         throw new Error("unused");
       }),
       findMember: vi.fn(async () => null),
+      findActiveMember: vi.fn(async () => ({
+        id: "wm-1",
+        workspaceId: "ws-1",
+        userId: "u-1",
+        role: "MEMBER",
+        status: "ACTIVE",
+        joinedAt: now,
+        lastSeenAt: now
+      })),
       listByWorkspace: vi.fn(async () => []),
-      findLatestWorkspaceIdByUser: vi.fn(async () => null)
+      findLatestWorkspaceIdByUser: vi.fn(async () => null),
+      setMemberStatus: vi.fn(async () => {
+        throw new Error("unused");
+      })
     };
     const repo: TaskRepo = {
       create,
@@ -98,8 +110,20 @@ describe("TaskService.getMyTasks", () => {
         throw new Error("unused");
       }),
       findMember: vi.fn(async () => null),
+      findActiveMember: vi.fn(async () => ({
+        id: "wm-1",
+        workspaceId: "ws-1",
+        userId: "u-1",
+        role: "MEMBER",
+        status: "ACTIVE",
+        joinedAt: now,
+        lastSeenAt: now
+      })),
       listByWorkspace: vi.fn(async () => []),
-      findLatestWorkspaceIdByUser: vi.fn(async () => null)
+      findLatestWorkspaceIdByUser: vi.fn(async () => null),
+      setMemberStatus: vi.fn(async () => {
+        throw new Error("unused");
+      })
     };
     const repo: TaskRepo = {
       create: vi.fn(async (task) => task),
@@ -352,8 +376,12 @@ describe("TaskService DM draft flow", () => {
         throw new Error("unused");
       }),
       findMember: vi.fn(async () => null),
+      findActiveMember: vi.fn(async () => null),
       listByWorkspace: vi.fn(async () => []),
-      findLatestWorkspaceIdByUser: vi.fn(async () => null)
+      findLatestWorkspaceIdByUser: vi.fn(async () => null),
+      setMemberStatus: vi.fn(async () => {
+        throw new Error("unused");
+      })
     };
     const createDraft = vi.fn(async (input: { token: string }) => ({
       id: "d-1",
@@ -415,8 +443,20 @@ describe("TaskService DM draft flow", () => {
         throw new Error("unused");
       }),
       findMember: vi.fn(async () => null),
+      findActiveMember: vi.fn(async () => ({
+        id: "wm-1",
+        workspaceId: "ws-1",
+        userId: "u-1",
+        role: "MEMBER",
+        status: "ACTIVE",
+        joinedAt: now,
+        lastSeenAt: now
+      })),
       listByWorkspace: vi.fn(async () => []),
-      findLatestWorkspaceIdByUser: vi.fn(async () => null)
+      findLatestWorkspaceIdByUser: vi.fn(async () => null),
+      setMemberStatus: vi.fn(async () => {
+        throw new Error("unused");
+      })
     };
     const updateDraftStepIfExpected = vi.fn(async () => ({
       updated: false,

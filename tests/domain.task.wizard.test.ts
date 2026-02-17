@@ -51,8 +51,12 @@ describe("TaskService wizard flow", () => {
         throw new Error("unused");
       }),
       findMember: vi.fn(async () => null),
+      findActiveMember: vi.fn(async () => ({ id: "wm-1", workspaceId: "ws-1", userId: "u-1", role: "MEMBER", status: "ACTIVE", joinedAt: new Date(), lastSeenAt: new Date() })),
       listByWorkspace: vi.fn(async () => []),
-      findLatestWorkspaceIdByUser: vi.fn(async () => null)
+      findLatestWorkspaceIdByUser: vi.fn(async () => null),
+      setMemberStatus: vi.fn(async () => {
+        throw new Error("unused");
+      })
     };
     const repo: TaskRepo = {
       create: vi.fn(async (task) => task),
@@ -86,8 +90,12 @@ describe("TaskService wizard flow", () => {
         throw new Error("unused");
       }),
       findMember: vi.fn(async () => null),
+      findActiveMember: vi.fn(async () => ({ id: "wm-1", workspaceId: "ws-1", userId: "u-1", role: "MEMBER", status: "ACTIVE", joinedAt: new Date(), lastSeenAt: new Date() })),
       listByWorkspace: vi.fn(async () => []),
-      findLatestWorkspaceIdByUser: vi.fn(async () => null)
+      findLatestWorkspaceIdByUser: vi.fn(async () => null),
+      setMemberStatus: vi.fn(async () => {
+        throw new Error("unused");
+      })
     };
     const repo: TaskRepo = {
       create: vi.fn(async (task) => task),
@@ -120,8 +128,12 @@ describe("TaskService wizard flow", () => {
         throw new Error("unused");
       }),
       findMember: vi.fn(async () => null),
+      findActiveMember: vi.fn(async () => ({ id: "wm-1", workspaceId: "ws-1", userId: "u-1", role: "MEMBER", status: "ACTIVE", joinedAt: new Date(), lastSeenAt: new Date() })),
       listByWorkspace: vi.fn(async () => []),
-      findLatestWorkspaceIdByUser: vi.fn(async () => null)
+      findLatestWorkspaceIdByUser: vi.fn(async () => null),
+      setMemberStatus: vi.fn(async () => {
+        throw new Error("unused");
+      })
     };
     const updateDraft = vi.fn(async (_id, patch) => ({ ...draft, ...patch }));
     const repo: TaskRepo = {
@@ -158,8 +170,12 @@ describe("TaskService wizard flow", () => {
         throw new Error("unused");
       }),
       findMember: vi.fn(async () => null),
+      findActiveMember: vi.fn(async () => ({ id: "wm-1", workspaceId: "ws-1", userId: "u-1", role: "MEMBER", status: "ACTIVE", joinedAt: new Date(), lastSeenAt: new Date() })),
       listByWorkspace: vi.fn(async () => []),
-      findLatestWorkspaceIdByUser: vi.fn(async () => null)
+      findLatestWorkspaceIdByUser: vi.fn(async () => null),
+      setMemberStatus: vi.fn(async () => {
+        throw new Error("unused");
+      })
     };
     const updateDraft = vi.fn(async (_id, patch) => ({ ...draft, ...patch }));
     const repo: TaskRepo = {
@@ -196,8 +212,12 @@ describe("TaskService wizard flow", () => {
         throw new Error("unused");
       }),
       findMember: vi.fn(async () => null),
+      findActiveMember: vi.fn(async () => ({ id: "wm-1", workspaceId: "ws-1", userId: "u-1", role: "MEMBER", status: "ACTIVE", joinedAt: new Date(), lastSeenAt: new Date() })),
       listByWorkspace: vi.fn(async () => []),
-      findLatestWorkspaceIdByUser: vi.fn(async () => null)
+      findLatestWorkspaceIdByUser: vi.fn(async () => null),
+      setMemberStatus: vi.fn(async () => {
+        throw new Error("unused");
+      })
     };
     const updateDraft = vi.fn(async (_id, patch) => ({ ...draft, ...patch }));
     const repo: TaskRepo = {
@@ -246,8 +266,12 @@ describe("TaskService wizard flow", () => {
         throw new Error("unused");
       }),
       findMember: vi.fn(async () => null),
+      findActiveMember: vi.fn(async () => ({ id: "wm-1", workspaceId: "ws-1", userId: "u-1", role: "MEMBER", status: "ACTIVE", joinedAt: new Date(), lastSeenAt: new Date() })),
       listByWorkspace: vi.fn(async () => []),
-      findLatestWorkspaceIdByUser: vi.fn(async () => null)
+      findLatestWorkspaceIdByUser: vi.fn(async () => null),
+      setMemberStatus: vi.fn(async () => {
+        throw new Error("unused");
+      })
     };
     const repo: TaskRepo = {
       create: vi.fn(async (task) => task),
@@ -289,8 +313,12 @@ describe("TaskService wizard flow", () => {
         throw new Error("unused");
       }),
       findMember: vi.fn(async () => null),
+      findActiveMember: vi.fn(async () => ({ id: "wm-1", workspaceId: "ws-1", userId: "u-1", role: "MEMBER", status: "ACTIVE", joinedAt: new Date(), lastSeenAt: new Date() })),
       listByWorkspace: vi.fn(async () => []),
-      findLatestWorkspaceIdByUser: vi.fn(async () => null)
+      findLatestWorkspaceIdByUser: vi.fn(async () => null),
+      setMemberStatus: vi.fn(async () => {
+        throw new Error("unused");
+      })
     };
     const repo: TaskRepo = {
       create: vi.fn(async (task) => task),
