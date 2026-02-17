@@ -3,27 +3,31 @@ import { describe, expect, it, vi } from "vitest";
 import type { WorkspaceMemberRepo } from "../src/domain/ports/workspace-member.repo.port.js";
 import { WorkspaceMemberService } from "../src/domain/workspaces/workspace-member.service.js";
 
-describe("WorkspaceMemberService.upsertExecutorMembership", () => {
+describe("WorkspaceMemberService", () => {
   it("creates member first time", async () => {
     const now = new Date("2026-02-16T00:00:00.000Z");
     const upsertMember = vi.fn(async () => ({
       id: "wm-1",
       workspaceId: "ws-1",
       userId: "u-1",
-      role: "EXECUTOR" as const,
+      role: "MEMBER" as const,
       joinedAt: now,
       lastSeenAt: now
     }));
-    const repo: WorkspaceMemberRepo = { upsertMember };
+    const repo: WorkspaceMemberRepo = {
+      upsertMember,
+      findMember: vi.fn(async () => null),
+      listByWorkspace: vi.fn(async () => [])
+    };
     const service = new WorkspaceMemberService({ now: () => now }, repo);
 
-    const result = await service.upsertExecutorMembership("ws-1", "u-1");
+    const result = await service.upsertMemberRole("ws-1", "u-1");
 
-    expect(upsertMember).toHaveBeenCalledWith("ws-1", "u-1", "EXECUTOR", now);
+    expect(upsertMember).toHaveBeenCalledWith("ws-1", "u-1", "MEMBER", now);
     expect(result).toMatchObject({
       workspaceId: "ws-1",
       userId: "u-1",
-      role: "EXECUTOR"
+      role: "MEMBER"
     });
   });
 
@@ -36,7 +40,7 @@ describe("WorkspaceMemberService.upsertExecutorMembership", () => {
         id: "wm-1",
         workspaceId: "ws-1",
         userId: "u-1",
-        role: "EXECUTOR" as const,
+        role: "MEMBER" as const,
         joinedAt: firstSeen,
         lastSeenAt: firstSeen
       })
@@ -44,23 +48,27 @@ describe("WorkspaceMemberService.upsertExecutorMembership", () => {
         id: "wm-1",
         workspaceId: "ws-1",
         userId: "u-1",
-        role: "EXECUTOR" as const,
+        role: "MEMBER" as const,
         joinedAt: firstSeen,
         lastSeenAt: secondSeen
       });
-    const repo: WorkspaceMemberRepo = { upsertMember };
+    const repo: WorkspaceMemberRepo = {
+      upsertMember,
+      findMember: vi.fn(async () => null),
+      listByWorkspace: vi.fn(async () => [])
+    };
     const clock = {
       now: vi.fn().mockReturnValueOnce(firstSeen).mockReturnValueOnce(secondSeen)
     };
     const service = new WorkspaceMemberService(clock, repo);
 
-    const first = await service.upsertExecutorMembership("ws-1", "u-1");
-    const second = await service.upsertExecutorMembership("ws-1", "u-1");
+    const first = await service.upsertMemberRole("ws-1", "u-1");
+    const second = await service.upsertMemberRole("ws-1", "u-1");
 
     expect(first.id).toBe("wm-1");
     expect(second.id).toBe("wm-1");
     expect(second.lastSeenAt).toEqual(secondSeen);
-    expect(upsertMember).toHaveBeenNthCalledWith(1, "ws-1", "u-1", "EXECUTOR", firstSeen);
-    expect(upsertMember).toHaveBeenNthCalledWith(2, "ws-1", "u-1", "EXECUTOR", secondSeen);
+    expect(upsertMember).toHaveBeenNthCalledWith(1, "ws-1", "u-1", "MEMBER", firstSeen);
+    expect(upsertMember).toHaveBeenNthCalledWith(2, "ws-1", "u-1", "MEMBER", secondSeen);
   });
 });

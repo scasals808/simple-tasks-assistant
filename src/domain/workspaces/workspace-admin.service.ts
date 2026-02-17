@@ -71,6 +71,14 @@ export class WorkspaceAdminService {
     return this.setOwner(workspace.id, userId, replace);
   }
 
+  async isOwner(workspaceId: string, userId: string): Promise<boolean> {
+    const workspace = await this.workspaceRepo.findById(workspaceId);
+    if (!workspace) {
+      return false;
+    }
+    return workspace.ownerUserId === userId;
+  }
+
   async getLatestWorkspaceId(): Promise<string | null> {
     const workspace = await this.workspaceRepo.findLatest();
     return workspace?.id ?? null;

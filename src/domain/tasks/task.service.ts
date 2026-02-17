@@ -102,6 +102,10 @@ export class TaskService {
     return this.taskRepo.createDraft(input);
   }
 
+  async getMyTasks(viewerUserId: string): Promise<Task[]> {
+    return this.taskRepo.findByAssigneeUserId(viewerUserId);
+  }
+
   async startDraftWizard(token: string, requesterUserId: string): Promise<StartDraftWizardResult> {
     const draft = await this.taskRepo.findDraftByToken(token);
     if (!draft || draft.creatorUserId !== requesterUserId) {

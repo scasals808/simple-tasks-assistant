@@ -21,13 +21,13 @@ describe("WorkspaceMemberRepoPrisma", () => {
       id: "wm-1",
       workspaceId: "ws-1",
       userId: "u-1",
-      role: "EXECUTOR",
+      role: "MEMBER",
       joinedAt: now,
       lastSeenAt: now
     });
     const repo = new WorkspaceMemberRepoPrisma();
 
-    const result = await repo.upsertMember("ws-1", "u-1", "EXECUTOR", now);
+    const result = await repo.upsertMember("ws-1", "u-1", "MEMBER", now);
 
     expect(prismaMocks.workspaceMemberUpsert).toHaveBeenCalledWith({
       where: {
@@ -39,12 +39,12 @@ describe("WorkspaceMemberRepoPrisma", () => {
       create: {
         workspaceId: "ws-1",
         userId: "u-1",
-        role: "EXECUTOR",
+        role: "MEMBER",
         joinedAt: now,
         lastSeenAt: now
       },
       update: {
-        role: "EXECUTOR",
+        role: "MEMBER",
         lastSeenAt: now
       }
     });
@@ -52,7 +52,7 @@ describe("WorkspaceMemberRepoPrisma", () => {
       id: "wm-1",
       workspaceId: "ws-1",
       userId: "u-1",
-      role: "EXECUTOR"
+      role: "MEMBER"
     });
   });
 });

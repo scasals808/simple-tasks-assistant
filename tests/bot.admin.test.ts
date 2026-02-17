@@ -68,6 +68,7 @@ describe("bot admin handlers", () => {
       createInviteForLatest: vi.fn(async () => ({ token: "tok", workspaceId: "ws-1" })),
       setOwnerForLatest: vi.fn(async () => ({ id: "ws-1", ownerUserId: "1" })),
       setOwner: vi.fn(async () => ({ id: "ws-1", ownerUserId: "1" })),
+      isOwner: vi.fn(async () => false),
       getLatestWorkspaceId: vi.fn(async () => "ws-1"),
       resetAllWorkspaceData: vi.fn(async () => ({
         workspaceMembers: 0,
@@ -80,6 +81,7 @@ describe("bot admin handlers", () => {
       "token",
       taskService,
       "my_bot",
+      {} as never,
       {} as never,
       workspaceInviteService,
       workspaceAdminService,
@@ -108,6 +110,7 @@ describe("bot admin handlers", () => {
       createInviteForLatest: vi.fn(async () => ({ token: "tok123", workspaceId: "ws-1" })),
       setOwnerForLatest: vi.fn(async () => ({ id: "ws-1", ownerUserId: "1" })),
       setOwner: vi.fn(async () => ({ id: "ws-1", ownerUserId: "1" })),
+      isOwner: vi.fn(async () => false),
       getLatestWorkspaceId: vi.fn(async () => "ws-1"),
       resetAllWorkspaceData: vi.fn(async () => ({
         workspaceMembers: 0,
@@ -119,6 +122,7 @@ describe("bot admin handlers", () => {
       "token",
       taskService,
       "my_bot",
+      {} as never,
       {} as never,
       workspaceInviteService,
       workspaceAdminService,
@@ -148,6 +152,7 @@ describe("bot admin handlers", () => {
       createInviteForLatest: vi.fn(async () => ({ token: "tok123", workspaceId: "ws-1" })),
       setOwnerForLatest: vi.fn(async () => ({ id: "ws-1", ownerUserId: "1" })),
       setOwner,
+      isOwner: vi.fn(async () => false),
       getLatestWorkspaceId: vi.fn(async () => "ws-1"),
       resetAllWorkspaceData: vi.fn(async () => ({
         workspaceMembers: 0,
@@ -159,6 +164,7 @@ describe("bot admin handlers", () => {
       "token",
       taskService,
       "my_bot",
+      {} as never,
       {} as never,
       workspaceInviteService,
       workspaceAdminService,
@@ -191,12 +197,27 @@ describe("bot admin handlers", () => {
       ensureWorkspaceForChatWithResult,
       ensureWorkspaceForChat: vi.fn()
     } as never;
-    const workspaceAdminService = {} as never;
+    const setOwner = vi.fn(async () => ({ id: "ws-1", ownerUserId: "1" }));
+    const workspaceAdminService = {
+      setOwner,
+      isOwner: vi.fn(async () => false)
+    } as never;
+    const workspaceMemberService = {
+      upsertOwnerMembership: vi.fn(async () => ({
+        id: "wm-1",
+        workspaceId: "ws-1",
+        userId: "1",
+        role: "OWNER",
+        joinedAt: new Date("2026-02-16T00:00:00.000Z"),
+        lastSeenAt: new Date("2026-02-16T00:00:00.000Z")
+      }))
+    } as never;
     const bot = createBot(
       "token",
       taskService,
       "my_bot",
       workspaceService,
+      workspaceMemberService,
       workspaceInviteService,
       workspaceAdminService,
       new Set(["1"]),
@@ -213,6 +234,7 @@ describe("bot admin handlers", () => {
     });
 
     expect(ensureWorkspaceForChatWithResult).toHaveBeenCalledWith("-100123", "Alpha Team");
+    expect(setOwner).toHaveBeenCalledWith("ws-1", "1", false);
     expect(reply).toHaveBeenCalledWith(
       "Team created/exists: workspaceId=ws-1 | chatId=-100123 | title=Alpha Team"
     );
@@ -230,12 +252,26 @@ describe("bot admin handlers", () => {
       ensureWorkspaceForChatWithResult,
       ensureWorkspaceForChat: vi.fn()
     } as never;
-    const workspaceAdminService = {} as never;
+    const workspaceAdminService = {
+      setOwner: vi.fn(async () => ({ id: "ws-1", ownerUserId: "1" })),
+      isOwner: vi.fn(async () => false)
+    } as never;
+    const workspaceMemberService = {
+      upsertOwnerMembership: vi.fn(async () => ({
+        id: "wm-1",
+        workspaceId: "ws-1",
+        userId: "1",
+        role: "OWNER",
+        joinedAt: new Date("2026-02-16T00:00:00.000Z"),
+        lastSeenAt: new Date("2026-02-16T00:00:00.000Z")
+      }))
+    } as never;
     const bot = createBot(
       "token",
       taskService,
       "my_bot",
       workspaceService,
+      workspaceMemberService,
       workspaceInviteService,
       workspaceAdminService,
       new Set(["1"]),
@@ -273,6 +309,7 @@ describe("bot admin handlers", () => {
       taskService,
       "my_bot",
       {} as never,
+      {} as never,
       workspaceInviteService,
       workspaceAdminService,
       new Set(["1"]),
@@ -302,6 +339,7 @@ describe("bot admin handlers", () => {
       "token",
       taskService,
       "my_bot",
+      {} as never,
       {} as never,
       workspaceInviteService,
       workspaceAdminService,
@@ -333,6 +371,7 @@ describe("bot admin handlers", () => {
       "token",
       taskService,
       "my_bot",
+      {} as never,
       {} as never,
       workspaceInviteService,
       workspaceAdminService,
@@ -366,6 +405,7 @@ describe("bot admin handlers", () => {
       taskService,
       "my_bot",
       {} as never,
+      {} as never,
       workspaceInviteService,
       workspaceAdminService,
       new Set(["1"]),
@@ -379,5 +419,61 @@ describe("bot admin handlers", () => {
       reply
     });
     expect(reply).toHaveBeenCalledWith("DM only");
+  });
+
+  it("builds assignee choices from workspace members in start flow", async () => {
+    const reply = vi.fn(async () => undefined);
+    const taskService = {
+      startDraftWizard: vi.fn(async () => ({
+        status: "STARTED" as const,
+        draft: { id: "d-1", sourceChatId: "-100123" }
+      }))
+    } as never;
+    const workspaceService = {
+      findWorkspaceByChatId: vi.fn(async () => ({ id: "ws-1", chatId: "-100123", title: "Alpha Team" }))
+    } as never;
+    const workspaceMemberService = {
+      listWorkspaceMembers: vi.fn(async () => [
+        {
+          id: "wm-1",
+          workspaceId: "ws-1",
+          userId: "10",
+          role: "OWNER"
+        },
+        {
+          id: "wm-2",
+          workspaceId: "ws-1",
+          userId: "11",
+          role: "MEMBER"
+        }
+      ])
+    } as never;
+    const bot = createBot(
+      "token",
+      taskService,
+      "my_bot",
+      workspaceService,
+      workspaceMemberService,
+      {} as never,
+      {} as never,
+      new Set(["1"]),
+      false
+    ) as unknown as MockBot & { startHandler: Handler | null };
+
+    expect(bot.startHandler).toBeTruthy();
+    await bot.startHandler?.({
+      chat: { type: "private" },
+      from: { id: 1 },
+      message: { text: "/start token-1" },
+      reply
+    });
+
+    const firstCall = reply.mock.calls[0];
+    expect(firstCall).toBeDefined();
+    const replyPayload = (firstCall?.[1] ?? {}) as unknown as {
+      reply_markup?: { inline_keyboard?: Array<Array<{ text: string; callback_data: string }>> };
+    };
+    const labels = (replyPayload.reply_markup?.inline_keyboard ?? []).flat().map((button) => button.text);
+    expect(labels).toEqual(["10 (OWNER)", "11 (MEMBER)"]);
   });
 });

@@ -7,7 +7,7 @@ export async function handleStartTask(
   },
   taskService: TaskService,
   token: string,
-  assigneeKeyboard: (token: string) => unknown
+  assigneeKeyboard: (token: string, sourceChatId: string) => Promise<unknown> | unknown
 ): Promise<void> {
   const started = await taskService.startDraftWizard(token, String(ctx.from.id));
   if (started.status === "NOT_FOUND") {
@@ -20,5 +20,5 @@ export async function handleStartTask(
     return;
   }
 
-  await ctx.reply("Choose assignee", assigneeKeyboard(token));
+  await ctx.reply("Choose assignee", await assigneeKeyboard(token, started.draft.sourceChatId));
 }

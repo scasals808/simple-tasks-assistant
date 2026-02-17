@@ -110,11 +110,11 @@ describe("start handlers", () => {
     const taskService = {
       startDraftWizard: vi.fn(async () => ({
         status: "STARTED" as const,
-        draft: { id: "d-1" }
+        draft: { id: "d-1", sourceChatId: "-1001" }
       }))
     };
     const keyboard = { reply_markup: { inline_keyboard: [] } };
-    const assigneeKeyboard = vi.fn(() => keyboard);
+    const assigneeKeyboard = vi.fn(async () => keyboard);
 
     await handleStartTask(
       ctx,
@@ -122,13 +122,13 @@ describe("start handlers", () => {
         startDraftWizard(
           token: string,
           userId: string
-        ): Promise<{ status: "STARTED"; draft: { id: string } }>;
+        ): Promise<{ status: "STARTED"; draft: { id: string; sourceChatId: string } }>;
       },
       "task-token",
       assigneeKeyboard
     );
 
-    expect(assigneeKeyboard).toHaveBeenCalledWith("task-token");
+    expect(assigneeKeyboard).toHaveBeenCalledWith("task-token", "-1001");
     expect(reply).toHaveBeenCalledWith("Choose assignee", keyboard);
   });
 

@@ -5,6 +5,7 @@ import type { TaskService } from "../domain/tasks/task.service.js";
 import type { WorkspaceInviteService } from "../domain/workspaces/workspace-invite.service.js";
 import type { WorkspaceAdminService } from "../domain/workspaces/workspace-admin.service.js";
 import type { WorkspaceService } from "../domain/workspaces/workspace.service.js";
+import type { WorkspaceMemberService } from "../domain/workspaces/workspace-member.service.js";
 import { isAdmin } from "../config/env.js";
 import { handleStartJoin } from "./start/handlers/start.join.js";
 import { handleStartPlain } from "./start/handlers/start.plain.js";
@@ -14,12 +15,6 @@ import {
   parseStartPayload,
   selectStartRoute
 } from "./start/start.router.js";
-
-const ASSIGNEES = [
-  { id: "ivan", label: "Ivan" },
-  { id: "maria", label: "Maria" },
-  { id: "sergey", label: "Sergey" }
-] as const;
 
 function getTelegramError(error: unknown): { code?: number; description?: string } {
   const err = error as { response?: { error_code?: number; description?: string } };
@@ -64,12 +59,6 @@ function logStep(
   console.log("[bot.handler_step_ok]", payload);
 }
 
-function assigneeKeyboard(token: string) {
-  return Markup.inlineKeyboard(
-    ASSIGNEES.map((item) => [Markup.button.callback(item.label, `draft_assignee:${token}:${item.id}`)])
-  );
-}
-
 function priorityKeyboard(token: string) {
   return Markup.inlineKeyboard([
     [
@@ -96,8 +85,7 @@ function confirmKeyboard(token: string) {
 function adminMenuKeyboard() {
   return Markup.inlineKeyboard([
     [Markup.button.callback("Create team", "admin_create_team")],
-    [Markup.button.callback("Generate invite link", "admin_generate_invite")],
-    [Markup.button.callback("Set owner", "admin_set_owner")]
+    [Markup.button.callback("Generate invite link", "admin_generate_invite")]
   ]);
 }
 
@@ -105,6 +93,7 @@ function logAdminAction(input: {
   handler: string;
   adminUserId?: number;
   workspaceId?: string | null;
+  isOwner?: boolean | null;
   targetUserId?: string | null;
   result: "OK" | "ERROR";
   errorCode?: string | null;
@@ -113,6 +102,7 @@ function logAdminAction(input: {
     handler: input.handler,
     admin_user_id: input.adminUserId ?? null,
     workspaceId: input.workspaceId ?? null,
+    is_owner: input.isOwner ?? null,
     target_userId: input.targetUserId ?? null,
     result: input.result,
     error_code: input.errorCode ?? null
@@ -259,6 +249,7 @@ export function createBot(
   taskService: TaskService,
   botUsername: string,
   workspaceService: WorkspaceService,
+  workspaceMemberService: WorkspaceMemberService,
   workspaceInviteService: WorkspaceInviteService,
   workspaceAdminService: WorkspaceAdminService,
   adminUserIds: Set<string>,
@@ -279,7 +270,31 @@ export function createBot(
       return;
     }
     if (route === "task" && parsed.type === "task") {
-      await handleStartTask(ctx, taskService, parsed.token, assigneeKeyboard);
+      await handleStartTask(ctx, taskService, parsed.token, async (draftToken, sourceChatId) => {
+        const workspace = await workspaceService.findWorkspaceByChatId(sourceChatId);
+        if (!workspace) {
+          return Markup.inlineKeyboard([
+            [
+              Markup.button.callback(
+                String(ctx.from.id),
+                `draft_assignee:${draftToken}:${String(ctx.from.id)}`
+              )
+            ]
+          ]);
+        }
+        const members = await workspaceMemberService.listWorkspaceMembers(workspace.id);
+        const rows = members.map((member) => [
+          Markup.button.callback(
+            `${member.userId} (${member.role})`,
+            `draft_assignee:${draftToken}:${member.userId}`
+          )
+        ]);
+        return Markup.inlineKeyboard(
+          rows.length > 0
+            ? rows
+            : [[Markup.button.callback(String(ctx.from.id), `draft_assignee:${draftToken}:${String(ctx.from.id)}`)]]
+        );
+      });
       return;
     }
     const rows = buildMainMenuRows(ctx.from?.id, adminUserIds);
@@ -299,7 +314,20 @@ export function createBot(
     if (ctx.chat.type !== "private") {
       return;
     }
-
+    const text = (ctx.message as { text?: string }).text ?? "";
+    if (text === "📌 Мои задачи") {
+      const tasks = await taskService.getMyTasks(String(ctx.from.id));
+      if (tasks.length === 0) {
+        await ctx.reply("No tasks");
+        return;
+      }
+      const preview = tasks
+        .slice(0, 10)
+        .map((task) => `#${task.id} ${task.priority} ${task.status}`)
+        .join("\n");
+      await ctx.reply(preview);
+      return;
+    }
     await ctx.reply("Not implemented yet");
   });
 
@@ -343,6 +371,10 @@ export function createBot(
     }
     try {
       const result = await workspaceService.ensureWorkspaceForChatWithResult(chatId, title);
+      if (result.result === "created") {
+        await workspaceAdminService.setOwner(result.workspace.id, String(ctx.from.id), false);
+        await workspaceMemberService.upsertOwnerMembership(result.workspace.id, String(ctx.from.id));
+      }
       logAdminCreateTeam({
         adminUserId: ctx.from.id,
         chatId,
@@ -395,11 +427,19 @@ export function createBot(
       return;
     }
     try {
+      const ownerCheck = await workspaceAdminService.isOwner(workspaceId, String(ctx.from.id));
+      console.log("[bot.permission_check]", {
+        handler: replace ? "admin_replace_owner" : "admin_set_owner",
+        user_id: ctx.from.id,
+        workspaceId,
+        is_owner: ownerCheck
+      });
       const result = await workspaceAdminService.setOwner(workspaceId, userId, replace);
       logAdminAction({
         handler: replace ? "admin_replace_owner" : "admin_set_owner",
         adminUserId: ctx.from.id,
         workspaceId,
+        isOwner: ownerCheck,
         targetUserId: userId,
         result: "OK"
       });
@@ -410,6 +450,7 @@ export function createBot(
         handler: replace ? "admin_replace_owner" : "admin_set_owner",
         adminUserId: ctx.from.id,
         workspaceId,
+        isOwner: null,
         targetUserId: userId,
         result: "ERROR",
         errorCode: message.includes("already")
@@ -434,31 +475,7 @@ export function createBot(
     );
   });
 
-  bot.command("admin_set_assigner", async (ctx) => {
-    await handleAdminSetOwnerCommand(
-      ctx as unknown as {
-        chat: { type: string };
-        from: { id: number };
-        message: { text?: string };
-        reply(text: string): Promise<unknown>;
-      },
-      false
-    );
-  });
-
   bot.command("admin_replace_owner", async (ctx) => {
-    await handleAdminSetOwnerCommand(
-      ctx as unknown as {
-        chat: { type: string };
-        from: { id: number };
-        message: { text?: string };
-        reply(text: string): Promise<unknown>;
-      },
-      true
-    );
-  });
-
-  bot.command("admin_replace_assigner", async (ctx) => {
     await handleAdminSetOwnerCommand(
       ctx as unknown as {
         chat: { type: string };
@@ -703,51 +720,6 @@ export function createBot(
     } catch {
       await ctx.reply("No workspace found");
     }
-  });
-
-  bot.action(/^admin_set_owner$/, async (ctx) => {
-    await ctx.answerCbQuery();
-    if (!isAdmin(String(ctx.from.id), adminUserIds)) {
-      await ctx.reply("Forbidden");
-      return;
-    }
-    try {
-      const latestWorkspaceId = await workspaceAdminService.getLatestWorkspaceId();
-      const usage = "Send: /admin_set_owner <workspaceId> <userId>";
-      const hint = latestWorkspaceId
-        ? `${usage}\nLatest workspaceId: ${latestWorkspaceId}`
-        : usage;
-      await ctx.reply(hint);
-      logAdminAction({
-        handler: "admin_set_owner_button",
-        adminUserId: ctx.from.id,
-        workspaceId: latestWorkspaceId,
-        targetUserId: null,
-        result: "OK"
-      });
-    } catch {
-      await ctx.reply("Send: /admin_set_owner <workspaceId> <userId>");
-      logAdminAction({
-        handler: "admin_set_owner_button",
-        adminUserId: ctx.from.id,
-        workspaceId: null,
-        targetUserId: null,
-        result: "ERROR",
-        errorCode: "LATEST_WORKSPACE_READ_FAILED"
-      });
-    }
-  });
-
-  bot.action(/^admin_set_assigner$/, async (ctx) => {
-    await ctx.answerCbQuery();
-    if (!isAdmin(String(ctx.from.id), adminUserIds)) {
-      await ctx.reply("Forbidden");
-      return;
-    }
-    const latestWorkspaceId = await workspaceAdminService.getLatestWorkspaceId();
-    const usage = "Send: /admin_set_owner <workspaceId> <userId>";
-    const hint = latestWorkspaceId ? `${usage}\nLatest workspaceId: ${latestWorkspaceId}` : usage;
-    await ctx.reply(hint);
   });
 
   bot.action(/^draft_assignee:([^:]+):([^:]+)$/, async (ctx) => {

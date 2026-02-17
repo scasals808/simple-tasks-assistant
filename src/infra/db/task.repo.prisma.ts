@@ -173,6 +173,14 @@ export class PrismaTaskRepo implements TaskRepo {
     return row ? mapTask(row) : null;
   }
 
+  async findByAssigneeUserId(assigneeUserId: string): Promise<Task[]> {
+    const rows = await prisma.task.findMany({
+      where: { assigneeUserId },
+      orderBy: { createdAt: "desc" }
+    });
+    return rows.map(mapTask);
+  }
+
   async findAwaitingDeadlineDraftByCreator(creatorUserId: string): Promise<TaskDraft | null> {
     const row = await prisma.taskDraft.findFirst({
       where: {

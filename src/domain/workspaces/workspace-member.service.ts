@@ -7,15 +7,28 @@ export class WorkspaceMemberService {
     private readonly workspaceMemberRepo: WorkspaceMemberRepo
   ) {}
 
-  async upsertExecutorMembership(
+  async upsertMemberMembership(
     workspaceId: string,
-    userId: string
+    userId: string,
+    role: "OWNER" | "MEMBER"
   ): Promise<WorkspaceMember> {
     return this.workspaceMemberRepo.upsertMember(
       workspaceId,
       userId,
-      "EXECUTOR",
+      role,
       this.clock.now()
     );
+  }
+
+  async upsertOwnerMembership(workspaceId: string, userId: string): Promise<WorkspaceMember> {
+    return this.upsertMemberMembership(workspaceId, userId, "OWNER");
+  }
+
+  async upsertMemberRole(workspaceId: string, userId: string): Promise<WorkspaceMember> {
+    return this.upsertMemberMembership(workspaceId, userId, "MEMBER");
+  }
+
+  async listWorkspaceMembers(workspaceId: string): Promise<WorkspaceMember[]> {
+    return this.workspaceMemberRepo.listByWorkspace(workspaceId);
   }
 }

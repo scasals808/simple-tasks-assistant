@@ -37,12 +37,8 @@ export class WorkspaceInviteService {
       throw new WorkspaceInviteError("Workspace not found");
     }
 
-    await this.workspaceMemberRepo.upsertMember(
-      invite.workspaceId,
-      userId,
-      "EXECUTOR",
-      now
-    );
+    const existingMembership = await this.workspaceMemberRepo.findMember(invite.workspaceId, userId);
+    await this.workspaceMemberRepo.upsertMember(invite.workspaceId, userId, existingMembership?.role ?? "MEMBER", now);
 
     return {
       workspace: {

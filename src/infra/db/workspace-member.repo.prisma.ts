@@ -51,4 +51,24 @@ export class WorkspaceMemberRepoPrisma implements WorkspaceMemberRepo {
     });
     return mapWorkspaceMember(row);
   }
+
+  async findMember(workspaceId: string, userId: string): Promise<WorkspaceMember | null> {
+    const row = await prisma.workspaceMember.findUnique({
+      where: {
+        workspaceId_userId: {
+          workspaceId,
+          userId
+        }
+      }
+    });
+    return row ? mapWorkspaceMember(row) : null;
+  }
+
+  async listByWorkspace(workspaceId: string): Promise<WorkspaceMember[]> {
+    const rows = await prisma.workspaceMember.findMany({
+      where: { workspaceId },
+      orderBy: [{ role: "asc" }, { joinedAt: "asc" }]
+    });
+    return rows.map(mapWorkspaceMember);
+  }
 }

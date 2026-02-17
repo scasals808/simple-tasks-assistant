@@ -1,4 +1,4 @@
-export type WorkspaceMemberRole = "ASSIGNER" | "EXECUTOR";
+export type WorkspaceMemberRole = "OWNER" | "MEMBER";
 
 export type WorkspaceMember = {
   id: string;
@@ -16,4 +16,6 @@ export interface WorkspaceMemberRepo {
     role: WorkspaceMemberRole,
     lastSeenAt: Date
   ): Promise<WorkspaceMember>;
+  findMember(workspaceId: string, userId: string): Promise<WorkspaceMember | null>;
+  listByWorkspace(workspaceId: string): Promise<WorkspaceMember[]>;
 }

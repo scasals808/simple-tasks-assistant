@@ -41,10 +41,12 @@ describe("WorkspaceInviteService.acceptInvite", () => {
         id: "wm-1",
         workspaceId: "ws-1",
         userId: "u-1",
-        role: "EXECUTOR",
+        role: "MEMBER",
         joinedAt: now,
         lastSeenAt: now
-      }))
+      })),
+      findMember: vi.fn(async () => null),
+      listByWorkspace: vi.fn(async () => [])
     };
     const service = new WorkspaceInviteService(
       { now: () => now },
@@ -77,10 +79,12 @@ describe("WorkspaceInviteService.acceptInvite", () => {
         id: "wm-1",
         workspaceId: "ws-1",
         userId: "u-1",
-        role: "EXECUTOR",
+        role: "MEMBER",
         joinedAt: now,
         lastSeenAt: now
-      }))
+      })),
+      findMember: vi.fn(async () => null),
+      listByWorkspace: vi.fn(async () => [])
     };
     const service = new WorkspaceInviteService(
       { now: () => now },
@@ -124,11 +128,15 @@ describe("WorkspaceInviteService.acceptInvite", () => {
       id: "wm-1",
       workspaceId: "ws-1",
       userId: "u-1",
-      role: "EXECUTOR" as const,
+      role: "MEMBER" as const,
       joinedAt: now,
       lastSeenAt: now
     }));
-    const workspaceMemberRepo: WorkspaceMemberRepo = { upsertMember };
+    const workspaceMemberRepo: WorkspaceMemberRepo = {
+      upsertMember,
+      findMember: vi.fn(async () => null),
+      listByWorkspace: vi.fn(async () => [])
+    };
     const service = new WorkspaceInviteService(
       { now: () => now },
       workspaceInviteRepo,
@@ -138,7 +146,7 @@ describe("WorkspaceInviteService.acceptInvite", () => {
 
     const result = await service.acceptInvite("valid-token", "u-1");
 
-    expect(upsertMember).toHaveBeenCalledWith("ws-1", "u-1", "EXECUTOR", now);
+    expect(upsertMember).toHaveBeenCalledWith("ws-1", "u-1", "MEMBER", now);
     expect(result).toEqual({
       workspace: {
         id: "ws-1",
@@ -180,7 +188,7 @@ describe("WorkspaceInviteService.acceptInvite", () => {
         id: "wm-1",
         workspaceId: "ws-1",
         userId: "u-1",
-        role: "EXECUTOR" as const,
+        role: "MEMBER" as const,
         joinedAt: firstSeen,
         lastSeenAt: firstSeen
       })
@@ -188,11 +196,15 @@ describe("WorkspaceInviteService.acceptInvite", () => {
         id: "wm-1",
         workspaceId: "ws-1",
         userId: "u-1",
-        role: "EXECUTOR" as const,
+        role: "MEMBER" as const,
         joinedAt: firstSeen,
         lastSeenAt: secondSeen
       });
-    const workspaceMemberRepo: WorkspaceMemberRepo = { upsertMember };
+    const workspaceMemberRepo: WorkspaceMemberRepo = {
+      upsertMember,
+      findMember: vi.fn(async () => null),
+      listByWorkspace: vi.fn(async () => [])
+    };
     const clock = {
       now: vi.fn().mockReturnValueOnce(firstSeen).mockReturnValueOnce(secondSeen)
     };
@@ -206,7 +218,65 @@ describe("WorkspaceInviteService.acceptInvite", () => {
     await service.acceptInvite("valid-token", "u-1");
     await service.acceptInvite("valid-token", "u-1");
 
-    expect(upsertMember).toHaveBeenNthCalledWith(1, "ws-1", "u-1", "EXECUTOR", firstSeen);
-    expect(upsertMember).toHaveBeenNthCalledWith(2, "ws-1", "u-1", "EXECUTOR", secondSeen);
+    expect(upsertMember).toHaveBeenNthCalledWith(1, "ws-1", "u-1", "MEMBER", firstSeen);
+    expect(upsertMember).toHaveBeenNthCalledWith(2, "ws-1", "u-1", "MEMBER", secondSeen);
+  });
+
+  it("keeps OWNER role when owner accepts invite", async () => {
+    const now = new Date("2026-02-16T00:00:00.000Z");
+    const workspaceInviteRepo: WorkspaceInviteRepo = {
+      findValidByToken: vi.fn(async () => ({
+        id: "wi-1",
+        token: "valid-token",
+        workspaceId: "ws-1",
+        expiresAt: null,
+        createdAt: now
+      })),
+      createInvite: vi.fn(async () => ({
+        id: "wi-1",
+        token: "valid-token",
+        workspaceId: "ws-1",
+        expiresAt: null,
+        createdAt: now
+      }))
+    };
+    const workspaceRepo: WorkspaceRepo = {
+      ensureByChatId: vi.fn(async () => makeWorkspace()),
+      findByChatId: vi.fn(async () => makeWorkspace()),
+      findById: vi.fn(async () => makeWorkspace()),
+      createManual: vi.fn(async () => makeWorkspace()),
+      findLatest: vi.fn(async () => makeWorkspace()),
+      updateOwner: vi.fn(async () => makeWorkspace())
+    };
+    const upsertMember = vi.fn(async () => ({
+      id: "wm-1",
+      workspaceId: "ws-1",
+      userId: "owner-1",
+      role: "OWNER" as const,
+      joinedAt: now,
+      lastSeenAt: now
+    }));
+    const workspaceMemberRepo: WorkspaceMemberRepo = {
+      upsertMember,
+      findMember: vi.fn(async () => ({
+        id: "wm-1",
+        workspaceId: "ws-1",
+        userId: "owner-1",
+        role: "OWNER",
+        joinedAt: now,
+        lastSeenAt: now
+      })),
+      listByWorkspace: vi.fn(async () => [])
+    };
+    const service = new WorkspaceInviteService(
+      { now: () => now },
+      workspaceInviteRepo,
+      workspaceRepo,
+      workspaceMemberRepo
+    );
+
+    await service.acceptInvite("valid-token", "owner-1");
+
+    expect(upsertMember).toHaveBeenCalledWith("ws-1", "owner-1", "OWNER", now);
   });
 });
