@@ -102,7 +102,10 @@ export const ru = {
     title: (title: string) => `📌 Новая задача: ${title}`,
     priority: (priority: string) => `⚡ Приоритет: ${priority}`,
     deadline: (deadline: string) => `⏰ Срок: ${deadline}`,
-    assignedBy: (creator: string) => `👤 Назначил: ${creator}`
+    assignedBy: (creator: string) => `👤 Назначил: ${creator}`,
+    acceptedClosed: (title: string) => `✅ Задача принята и закрыта: ${title}`,
+    returnedToWork: (title: string, comment: string) =>
+      `↩️ Задача возвращена в работу: ${title}\n\nКомментарий:\n${comment}`
   },
   buttons: {
     context: (title: string) => `📎 Контекст: ${title}`,

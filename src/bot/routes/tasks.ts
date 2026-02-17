@@ -75,6 +75,34 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     }
   }
 
+  async function notifyAssigneeOnOwnerAction(
+    ctx: { telegram: { sendMessage(chatId: string, text: string, extra?: unknown): Promise<unknown> } },
+    input: {
+      assigneeUserId: string;
+      taskId: string;
+      text: string;
+    }
+  ): Promise<void> {
+    const keyboard = Markup.inlineKeyboard([
+      [Markup.button.callback(ru.buttons.openTask, `task_open:${input.taskId}`)]
+    ]);
+    try {
+      await ctx.telegram.sendMessage(input.assigneeUserId, input.text, keyboard);
+    } catch (error: unknown) {
+      const err = error as { response?: { error_code?: number } };
+      const errorCode = err.response?.error_code ?? null;
+      if (errorCode === 400 || errorCode === 403) {
+        console.warn("[bot.assignee_notify.failed]", {
+          userId: input.assigneeUserId,
+          taskId: input.taskId,
+          error_code: errorCode
+        });
+        return;
+      }
+      throw error;
+    }
+  }
+
   async function canOwnerReviewTask(task: { workspaceId: string | null }, viewerUserId: string): Promise<boolean> {
     if (!task.workspaceId) {
       return false;
@@ -712,6 +740,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     const taskId = ctx.match[1];
     const nonce = ctx.match[2];
     await ctx.answerCbQuery();
+    const before = await deps.taskService.getTaskForViewer(taskId, String(ctx.from.id));
     const result = await deps.taskService.acceptReview({
       taskId,
       actorUserId: String(ctx.from.id),
@@ -719,6 +748,15 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     });
     if (result.status === "SUCCESS") {
       await replyTaskCardWithActions(ctx, result.task, String(ctx.from.id));
+      const changed = before?.status === "ON_REVIEW" && result.task.status === "CLOSED";
+      if (changed) {
+        const title = shortenText(result.task.sourceText, 64);
+        await notifyAssigneeOnOwnerAction(ctx, {
+          assigneeUserId: result.task.assigneeUserId,
+          taskId: result.task.id,
+          text: ru.assigneeNotification.acceptedClosed(title)
+        });
+      }
       await ctx.reply(ru.acceptReview.success);
       return;
     }
@@ -789,6 +827,15 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     }
     if (result.status === "SUCCESS") {
       await replyTaskCardWithActions(ctx, result.task, String(ctx.from.id));
+      const comment = (result.task.lastReturnComment ?? "").trim();
+      if (comment) {
+        const title = shortenText(result.task.sourceText, 64);
+        await notifyAssigneeOnOwnerAction(ctx, {
+          assigneeUserId: result.task.assigneeUserId,
+          taskId: result.task.id,
+          text: ru.assigneeNotification.returnedToWork(title, comment)
+        });
+      }
       await ctx.reply(ru.returnToWork.success);
       return;
     }
