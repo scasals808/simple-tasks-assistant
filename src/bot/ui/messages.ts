@@ -59,7 +59,7 @@ export function renderTaskCard(task: {
   deadlineAt: Date | null;
   status: string;
   sourceText: string;
-}): string {
+}, viewerUserId: string): string {
   const statusRu =
     task.status === "ACTIVE"
       ? ru.status.active
@@ -69,13 +69,17 @@ export function renderTaskCard(task: {
           ? ru.status.closed
           : ru.status.unknown;
 
+  const compactTitle = shortenText(task.sourceText, 80);
+  const safeContext = shortenText(task.sourceText, 800);
+
   return [
     ru.wizard.created,
     `${ru.taskCard.title} ${ru.taskCard.idShort(shortTaskId(task.id))}`,
-    ru.taskCard.assignee(task.assigneeUserId),
+    ru.taskCard.taskTitle(compactTitle),
+    task.assigneeUserId === viewerUserId ? ru.taskCard.assigneeYou : ru.taskCard.assignee(task.assigneeUserId),
     ru.taskCard.priority(task.priority),
     ru.taskCard.deadline(formatDueDate(task.deadlineAt)),
     ru.taskCard.status(statusRu),
-    ru.taskCard.text(shortenText(task.sourceText, 220))
+    ru.taskCard.text(safeContext)
   ].join("\n");
 }

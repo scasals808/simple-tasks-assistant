@@ -8,7 +8,7 @@ import {
   confirmKeyboard,
   deadlineKeyboard,
   priorityKeyboard,
-  submitForReviewKeyboard
+  taskActionsKeyboard
 } from "../ui/keyboards.js";
 import { logStep } from "./logging.js";
 
@@ -225,15 +225,20 @@ export function registerDraftWizardRoutes(bot: Telegraf, deps: BotDeps): void {
     }
 
     logStep(ctx, "draft_confirm", tokenForTask, "step_final", callbackChatId, callbackMsgId);
-    const canSubmitForReview =
-      result.task.assigneeUserId === String(ctx.from.id) && result.task.status === "ACTIVE";
-    const replyMarkup = canSubmitForReview
-      ? submitForReviewKeyboard(result.task.id, createSubmitNonce()).reply_markup
-      : Markup.inlineKeyboard([]).reply_markup;
+    const replyMarkup = taskActionsKeyboard(
+      {
+        id: result.task.id,
+        sourceText: result.task.sourceText,
+        assigneeUserId: result.task.assigneeUserId,
+        status: result.task.status
+      },
+      String(ctx.from.id),
+      createSubmitNonce()
+    ).reply_markup;
 
     await updateOrReply(
       ctx,
-      renderTaskCard(result.task),
+      renderTaskCard(result.task, String(ctx.from.id)),
       replyMarkup
     );
   });

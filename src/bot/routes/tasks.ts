@@ -2,11 +2,15 @@ import { Markup, type Telegraf } from "telegraf";
 
 import type { BotDeps } from "../types.js";
 import { ru } from "../texts/ru.js";
-import { buildSourceLink } from "../ui/keyboards.js";
-import { renderTaskCard, renderTaskLine, renderTaskListHeader, shortTaskTitle } from "../ui/messages.js";
+import { buildSourceLink, taskActionsKeyboard } from "../ui/keyboards.js";
+import { renderTaskCard, renderTaskLine, renderTaskListHeader } from "../ui/messages.js";
 import { logDmCreateTask, logGroupTask, logStep, logTaskList } from "./logging.js";
 
 export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
+  function createActionNonce(): string {
+    return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+  }
+
   async function updateOrReply(
     ctx: {
       editMessageText(text: string, extra?: { reply_markup?: unknown }): Promise<unknown>;
@@ -82,9 +86,18 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
       }
 
       const body = result.tasks.map((task, index) => renderTaskLine(task, index)).join("\n\n");
-      const contextButtons = result.tasks.map((task) => [
-        Markup.button.callback(ru.buttons.context(shortTaskTitle(task.sourceText)), `task_context:${task.id}`)
-      ]);
+      const actionButtons = result.tasks.map((task) =>
+        taskActionsKeyboard(
+          {
+            id: task.id,
+            sourceText: task.sourceText,
+            assigneeUserId: task.assigneeUserId,
+            status: task.status
+          },
+          userId,
+          createActionNonce()
+        ).reply_markup?.inline_keyboard?.[0] ?? []
+      );
       logTaskList({
         handler: kind === "assigned" ? "list_assigned_tasks" : "list_created_tasks",
         userId,
@@ -92,7 +105,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
         count: result.tasks.length,
         queryMs: Date.now() - startedAt
       });
-      await ctx.reply(`${header}\n${body}`, Markup.inlineKeyboard(contextButtons));
+      await ctx.reply(`${header}\n${body}`, Markup.inlineKeyboard(actionButtons));
     } catch {
       logTaskList({
         handler: kind === "assigned" ? "list_assigned_tasks" : "list_created_tasks",
@@ -389,7 +402,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     }
   });
 
-  bot.action(/^task_context:(.+)$/, async (ctx) => {
+  bot.action(/^task_(?:open|context):(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     await ctx.answerCbQuery();
     const viewerUserId = String(ctx.from.id);
@@ -398,6 +411,22 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
       await ctx.reply(ru.common.taskNotFound);
       return;
     }
+
+    await updateOrReply(
+      ctx,
+      renderTaskCard(task, viewerUserId),
+      taskActionsKeyboard(
+        {
+          id: task.id,
+          sourceText: task.sourceText,
+          assigneeUserId: task.assigneeUserId,
+          status: task.status
+        },
+        viewerUserId,
+        createActionNonce(),
+        true
+      ).reply_markup
+    );
 
     const sourceChatIdNum = Number(task.sourceChatId);
     const sourceMessageIdNum = Number(task.sourceMessageId);
@@ -416,12 +445,10 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
         });
       }
     }
-
-    const fallback = task.sourceText.length > 500 ? `${task.sourceText.slice(0, 500)}...` : task.sourceText;
-    await ctx.reply(`${ru.taskList.contextMissingIntro}\n${fallback || "-"}`);
+    await ctx.reply(ru.taskList.contextMissingIntro);
   });
 
-  bot.action(/^task_submit_review:([^:]+):([^:]+)$/, async (ctx) => {
+  bot.action(/^task_(?:done|submit_review):([^:]+):([^:]+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     const nonce = ctx.match[2];
     await ctx.answerCbQuery();
@@ -433,7 +460,21 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     });
 
     if (result.status === "SUCCESS") {
-      await updateOrReply(ctx, renderTaskCard(result.task), Markup.inlineKeyboard([]).reply_markup);
+      await updateOrReply(
+        ctx,
+        renderTaskCard(result.task, String(ctx.from.id)),
+        taskActionsKeyboard(
+          {
+            id: result.task.id,
+            sourceText: result.task.sourceText,
+            assigneeUserId: result.task.assigneeUserId,
+            status: result.task.status
+          },
+          String(ctx.from.id),
+          createActionNonce(),
+          true
+        ).reply_markup
+      );
       await ctx.reply(ru.submitForReview.success);
       return;
     }

@@ -2,6 +2,7 @@ import { Markup } from "telegraf";
 
 import { isAdmin } from "../../config/env.js";
 import { ru } from "../texts/ru.js";
+import { shortTaskTitle } from "./messages.js";
 
 export function priorityKeyboard(token: string) {
   return Markup.inlineKeyboard([
@@ -64,6 +65,27 @@ export function buildSourceLink(
 
 export function submitForReviewKeyboard(taskId: string, nonce: string) {
   return Markup.inlineKeyboard([
-    [Markup.button.callback(ru.buttons.submitForReview, `task_submit_review:${taskId}:${nonce}`)]
+    [Markup.button.callback(ru.buttons.submitForReview, `task_done:${taskId}:${nonce}`)]
   ]);
+}
+
+export function taskActionsKeyboard(
+  task: {
+    id: string;
+    sourceText: string;
+    assigneeUserId: string;
+    status: string;
+  },
+  viewerUserId: string,
+  nonce: string,
+  inContext = false
+) {
+  const row = [];
+  if (!inContext) {
+    row.push(Markup.button.callback(ru.buttons.context(shortTaskTitle(task.sourceText)), `task_open:${task.id}`));
+  }
+  if (task.assigneeUserId === viewerUserId && task.status === "ACTIVE") {
+    row.push(Markup.button.callback(ru.buttons.submitForReview, `task_done:${task.id}:${nonce}`));
+  }
+  return Markup.inlineKeyboard(row.length > 0 ? [row] : []);
 }
