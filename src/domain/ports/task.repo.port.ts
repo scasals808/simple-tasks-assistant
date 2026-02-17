@@ -106,6 +106,15 @@ export interface TaskRepo {
     | { status: "NONCE_EXISTS" }
     | { status: "SUCCESS"; task: Task }
   >;
+  completeTaskTransactional(
+    taskId: string,
+    actorUserId: string,
+    nonce: string
+  ): Promise<
+    | { status: "NOT_FOUND" }
+    | { status: "NOT_ASSIGNEE" }
+    | { status: "SUCCESS"; mode: "self_closed" | "review"; changed: boolean; task: Task }
+  >;
 
   acceptReviewTransactional(
     taskId: string,

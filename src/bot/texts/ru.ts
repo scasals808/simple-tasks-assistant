@@ -70,6 +70,7 @@ export const ru = {
   },
   submitForReview: {
     confirmPrompt: "Подтвердить отправку на проверку?",
+    selfClosed: "✅ Задача закрыта.",
     success: "✅ Отправлено на проверку. Статус: На проверке.",
     alreadyOnReview: "Уже отправлено на проверку.",
     notAllowed: "Только исполнитель может нажать эту кнопку.",
@@ -121,7 +122,7 @@ export const ru = {
     adminGenerateInvite: "Ссылка-приглашение",
     submitForReview: "✅ Готово",
     acceptReview: "✅ Принять",
-    acceptReviewConfirm: "✅ Подтвердить",
+    acceptReviewConfirm: "✅ Закрыть",
     returnToWork: "↩️ Вернуть в работу",
     returnToWorkContinue: "↩️ Продолжить",
     confirm: "✅ Подтвердить",

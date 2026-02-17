@@ -424,6 +424,33 @@ export class TaskService {
     return result;
   }
 
+  async completeTask(input: {
+    taskId: string;
+    actorUserId: string;
+    nonce: string;
+  }): Promise<
+    | { status: "NOT_FOUND" }
+    | { status: "NOT_ASSIGNEE" }
+    | { status: "NOT_IN_WORKSPACE" }
+    | { status: "SUCCESS"; mode: "self_closed" | "review"; changed: boolean; task: Task }
+  > {
+    const result = await this.taskRepo.completeTaskTransactional(
+      input.taskId,
+      input.actorUserId,
+      input.nonce
+    );
+    if (result.status === "SUCCESS" && result.task.workspaceId) {
+      const membership = await this.workspaceMemberRepo.findMember(
+        result.task.workspaceId,
+        input.actorUserId
+      );
+      if (!membership) {
+        return { status: "NOT_IN_WORKSPACE" };
+      }
+    }
+    return result;
+  }
+
   async acceptReview(input: {
     taskId: string;
     actorUserId: string;

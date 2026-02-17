@@ -46,10 +46,16 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
       return;
     }
 
+    const members = await deps.workspaceMemberService.listWorkspaceMembers(input.workspaceId);
+    const assignee = members.find((member) => member.userId === input.assigneeUserId);
+    const assigneeDisplayName = assignee
+      ? renderMemberDisplayName(assignee)
+      : `id:${input.assigneeUserId}`;
+
     const title = shortenText(input.sourceText, 64);
     const text = [
       ru.ownerNotification.title(title),
-      ru.ownerNotification.assignee(input.assigneeUserId),
+      ru.ownerNotification.assignee(assigneeDisplayName),
       ru.ownerNotification.priority(input.priority),
       ru.ownerNotification.deadline(formatDueDate(input.deadlineAt))
     ].join("\n");
@@ -657,6 +663,35 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     const taskId = ctx.match[1];
     const nonce = ctx.match[2];
     await ctx.answerCbQuery();
+    const viewerUserId = String(ctx.from.id);
+    const task = await deps.taskService.getTaskForViewer(taskId, viewerUserId);
+    if (!task) {
+      await ctx.reply(ru.submitForReview.taskNotFound);
+      return;
+    }
+    const isSelfTask = task.creatorUserId === task.assigneeUserId && task.assigneeUserId === viewerUserId;
+    if (isSelfTask) {
+      const result = await deps.taskService.completeTask({
+        taskId,
+        actorUserId: viewerUserId,
+        nonce
+      });
+      if (result.status === "SUCCESS") {
+        await replyTaskCardWithActions(ctx, result.task, viewerUserId);
+        await ctx.reply(ru.submitForReview.selfClosed);
+        return;
+      }
+      if (result.status === "NOT_ASSIGNEE") {
+        await ctx.reply(ru.submitForReview.notAllowed);
+        return;
+      }
+      if (result.status === "NOT_IN_WORKSPACE") {
+        await ctx.reply(ru.submitForReview.notInWorkspace);
+        return;
+      }
+      await ctx.reply(ru.submitForReview.taskNotFound);
+      return;
+    }
     await updateOrReply(
       ctx,
       ru.submitForReview.confirmPrompt,
@@ -672,7 +707,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     const nonce = ctx.match[2];
     await ctx.answerCbQuery();
 
-    const result = await deps.taskService.submitForReview({
+    const result = await deps.taskService.completeTask({
       taskId,
       actorUserId: String(ctx.from.id),
       nonce
@@ -680,18 +715,22 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
 
     if (result.status === "SUCCESS") {
       await replyTaskCardWithActions(ctx, result.task, String(ctx.from.id));
-      await notifyOwnerOnReviewSubmitted(ctx, {
-        workspaceId: result.task.workspaceId,
-        taskId: result.task.id,
-        sourceText: result.task.sourceText,
-        assigneeUserId: result.task.assigneeUserId,
-        priority: result.task.priority,
-        deadlineAt: result.task.deadlineAt
-      });
-      await ctx.reply(ru.submitForReview.success);
-      return;
-    }
-    if (result.status === "ALREADY_ON_REVIEW") {
+      if (result.mode === "self_closed") {
+        await ctx.reply(ru.submitForReview.selfClosed);
+        return;
+      }
+      if (result.changed) {
+        await notifyOwnerOnReviewSubmitted(ctx, {
+          workspaceId: result.task.workspaceId,
+          taskId: result.task.id,
+          sourceText: result.task.sourceText,
+          assigneeUserId: result.task.assigneeUserId,
+          priority: result.task.priority,
+          deadlineAt: result.task.deadlineAt
+        });
+        await ctx.reply(ru.submitForReview.success);
+        return;
+      }
       await ctx.reply(ru.submitForReview.alreadyOnReview);
       return;
     }
@@ -701,10 +740,6 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     }
     if (result.status === "NOT_IN_WORKSPACE") {
       await ctx.reply(ru.submitForReview.notInWorkspace);
-      return;
-    }
-    if (result.status === "NONCE_EXISTS") {
-      await ctx.reply(ru.submitForReview.nonceExists);
       return;
     }
     await ctx.reply(ru.submitForReview.taskNotFound);

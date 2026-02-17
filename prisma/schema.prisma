@@ -69,6 +69,7 @@ model TaskAction {
 
 enum TaskActionType {
   SUBMIT_FOR_REVIEW
+  SELF_CLOSE
   ACCEPT_REVIEW
   RETURN_TO_WORK
 }

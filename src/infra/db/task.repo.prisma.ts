@@ -689,6 +689,120 @@ export class PrismaTaskRepo implements TaskRepo {
     });
   }
 
+  async completeTaskTransactional(
+    taskId: string,
+    actorUserId: string,
+    nonce: string
+  ): Promise<
+    | { status: "NOT_FOUND" }
+    | { status: "NOT_ASSIGNEE" }
+    | { status: "SUCCESS"; mode: "self_closed" | "review"; changed: boolean; task: Task }
+  > {
+    return await prisma.$transaction(async (tx) => {
+      const lockedRows = await tx.$queryRaw<
+        Array<{
+          id: string;
+          sourceDraftId: string;
+          workspaceId: string | null;
+          sourceChatId: string;
+          sourceMessageId: string;
+          sourceText: string;
+          sourceLink: string | null;
+          creatorUserId: string;
+          assigneeUserId: string;
+          priority: string;
+          deadlineAt: Date | null;
+          status: string;
+          submittedForReviewAt: Date | null;
+          lastReturnComment: string | null;
+          lastReturnAt: Date | null;
+          lastReturnByUserId: string | null;
+          createdAt: Date;
+          updatedAt: Date;
+        }>
+      >(Prisma.sql`
+        SELECT
+          t."id",
+          t."sourceDraftId",
+          t."workspaceId",
+          t."sourceChatId",
+          t."sourceMessageId",
+          t."sourceText",
+          t."sourceLink",
+          t."creatorUserId",
+          t."assigneeUserId",
+          t."priority",
+          t."deadlineAt",
+          t."status",
+          t."submittedForReviewAt",
+          t."lastReturnComment",
+          t."lastReturnAt",
+          t."lastReturnByUserId",
+          t."createdAt",
+          t."updatedAt"
+        FROM "Task" t
+        WHERE t."id" = ${taskId}
+        FOR UPDATE
+      `);
+      const task = lockedRows[0];
+      if (!task) {
+        return { status: "NOT_FOUND" as const };
+      }
+      if (task.assigneeUserId !== actorUserId) {
+        return { status: "NOT_ASSIGNEE" as const };
+      }
+
+      const mode = task.creatorUserId === task.assigneeUserId ? "self_closed" : "review";
+      const existingAction = await tx.taskAction.findUnique({
+        where: { nonce }
+      });
+      if (existingAction) {
+        return { status: "SUCCESS" as const, mode, changed: false, task: mapTask(task) };
+      }
+      if (task.status !== "ACTIVE") {
+        return { status: "SUCCESS" as const, mode, changed: false, task: mapTask(task) };
+      }
+
+      const now = new Date();
+      if (mode === "self_closed") {
+        await tx.taskAction.create({
+          data: {
+            taskId,
+            actorUserId,
+            type: "SELF_CLOSE",
+            nonce
+          }
+        });
+        const updatedTask = await tx.task.update({
+          where: { id: taskId },
+          data: {
+            status: "CLOSED",
+            updatedAt: now
+          }
+        });
+        return { status: "SUCCESS" as const, mode, changed: true, task: mapTask(updatedTask) };
+      }
+
+      await tx.taskAction.create({
+        data: {
+          taskId,
+          actorUserId,
+          type: "SUBMIT_FOR_REVIEW",
+          nonce
+        }
+      });
+      const updatedTask = await tx.task.update({
+        where: { id: taskId },
+        data: {
+          status: "ON_REVIEW",
+          submittedForReviewAt: now,
+          updatedAt: now
+        }
+      });
+      return { status: "SUCCESS" as const, mode, changed: true, task: mapTask(updatedTask) };
+    });
+  }
+
   async acceptReviewTransactional(
     taskId: string,
     actorUserId: string,

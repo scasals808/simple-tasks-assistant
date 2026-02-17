@@ -1,0 +1,7 @@
+DO $$
+BEGIN
+  ALTER TYPE "TaskActionType" ADD VALUE IF NOT EXISTS 'SELF_CLOSE';
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END
+$$;
