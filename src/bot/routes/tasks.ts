@@ -445,7 +445,6 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
         });
       }
     }
-    await ctx.reply(ru.taskList.contextMissingIntro);
   });
 
   bot.action(/^task_(?:done|submit_review):([^:]+):([^:]+)$/, async (ctx) => {
