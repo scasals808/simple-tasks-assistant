@@ -120,6 +120,27 @@ export class WorkspaceMemberService {
   }
 
   async findLatestWorkspaceIdForUser(userId: string): Promise<string | null> {
+    return this.resolveCurrentWorkspaceId(userId);
+  }
+
+  async resolveCurrentWorkspaceId(userId: string): Promise<string | null> {
+    if (this.workspaceMemberRepo.listActiveWorkspaceIdsByUser) {
+      const workspaceIds = await this.workspaceMemberRepo.listActiveWorkspaceIdsByUser(userId);
+      const uniqueWorkspaceIds = [...new Set(workspaceIds)];
+      if (uniqueWorkspaceIds.length === 0) {
+        return null;
+      }
+      if (uniqueWorkspaceIds.length > 1) {
+        const chosenWorkspaceId = [...uniqueWorkspaceIds].sort()[0] ?? null;
+        console.error("[domain.current_workspace_ambiguous]", {
+          userId,
+          workspaceIds: uniqueWorkspaceIds,
+          chosenWorkspaceId
+        });
+        return chosenWorkspaceId;
+      }
+      return uniqueWorkspaceIds[0] ?? null;
+    }
     return this.workspaceMemberRepo.findLatestWorkspaceIdByUser(userId);
   }
 
@@ -131,7 +152,7 @@ export class WorkspaceMemberService {
       tgUsername?: string | null;
     }
   ): Promise<void> {
-    const workspaceId = await this.workspaceMemberRepo.findLatestWorkspaceIdByUser(userId);
+    const workspaceId = await this.resolveCurrentWorkspaceId(userId);
     if (!workspaceId) {
       return;
     }

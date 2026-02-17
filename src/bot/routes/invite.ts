@@ -36,7 +36,7 @@ export function registerInviteRoutes(bot: Telegraf, deps: BotDeps): void {
       return false;
     }
     const userIdText = String(userId);
-    const workspaceId = await deps.workspaceMemberService.findLatestWorkspaceIdForUser(userIdText);
+    const workspaceId = await deps.workspaceMemberService.resolveCurrentWorkspaceId(userIdText);
     if (!workspaceId) {
       return false;
     }
@@ -118,7 +118,7 @@ export function registerInviteRoutes(bot: Telegraf, deps: BotDeps): void {
       });
       return;
     }
-    const workspaceId = await deps.workspaceMemberService.findLatestWorkspaceIdForUser(String(ctx.from.id));
+    const workspaceId = await deps.workspaceMemberService.resolveCurrentWorkspaceId(String(ctx.from.id));
     if (!workspaceId) {
       await ctx.reply(
         ru.onboarding.noWorkspace,
@@ -141,7 +141,7 @@ export function registerInviteRoutes(bot: Telegraf, deps: BotDeps): void {
   bot.action(/^onboarding:create_workspace$/, async (ctx) => {
     await ctx.answerCbQuery();
     const userId = String(ctx.from.id);
-    const existingWorkspaceId = await deps.workspaceMemberService.findLatestWorkspaceIdForUser(userId);
+    const existingWorkspaceId = await deps.workspaceMemberService.resolveCurrentWorkspaceId(userId);
     if (existingWorkspaceId) {
       await replyMainMenu(ctx);
       return;

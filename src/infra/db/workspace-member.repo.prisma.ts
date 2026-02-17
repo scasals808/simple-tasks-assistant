@@ -116,6 +116,15 @@ export class WorkspaceMemberRepoPrisma implements WorkspaceMemberRepo {
     return row?.workspaceId ?? null;
   }
 
+  async listActiveWorkspaceIdsByUser(userId: string): Promise<string[]> {
+    const rows = await prisma.workspaceMember.findMany({
+      where: { userId, status: "ACTIVE", workspace: { status: "ACTIVE" } },
+      select: { workspaceId: true },
+      distinct: ["workspaceId"]
+    });
+    return rows.map((row) => row.workspaceId);
+  }
+
   async findActiveMember(workspaceId: string, userId: string): Promise<WorkspaceMember | null> {
     const row = await prisma.workspaceMember.findFirst({
       where: {

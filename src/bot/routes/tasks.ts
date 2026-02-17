@@ -240,7 +240,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     const userId = String(ctx.from.id);
     const startedAt = Date.now();
     try {
-      const workspaceId = await deps.workspaceMemberService.findLatestWorkspaceIdForUser(userId);
+      const workspaceId = await deps.workspaceMemberService.resolveCurrentWorkspaceId(userId);
       if (!workspaceId) {
         logTaskList({
           handler: kind === "assigned" ? "list_assigned_tasks" : "list_created_tasks",
@@ -335,7 +335,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
       return;
     }
     const userId = String(ctx.from.id);
-    const workspaceId = await deps.workspaceMemberService.findLatestWorkspaceIdForUser(userId);
+    const workspaceId = await deps.workspaceMemberService.resolveCurrentWorkspaceId(userId);
     if (!workspaceId) {
       logDmCreateTask({
         userId,
@@ -372,7 +372,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     const userId = String(ctx.from.id);
     const startedAt = Date.now();
     try {
-      const workspaceId = await deps.workspaceMemberService.findLatestWorkspaceIdForUser(userId);
+      const workspaceId = await deps.workspaceMemberService.resolveCurrentWorkspaceId(userId);
       if (!workspaceId) {
         logTaskList({
           handler: "list_on_review_tasks",
@@ -446,7 +446,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     reply(text: string, extra?: unknown): Promise<unknown>;
   }): Promise<void> {
     const userId = String(ctx.from.id);
-    const workspaceId = await deps.workspaceMemberService.findLatestWorkspaceIdForUser(userId);
+    const workspaceId = await deps.workspaceMemberService.resolveCurrentWorkspaceId(userId);
     if (!workspaceId) {
       await ctx.reply(ru.taskList.joinTeamFirst);
       return;
@@ -479,7 +479,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     reply(text: string, extra?: unknown): Promise<unknown>;
   }): Promise<void> {
     const userId = String(ctx.from.id);
-    const workspaceId = await deps.workspaceMemberService.findLatestWorkspaceIdForUser(userId);
+    const workspaceId = await deps.workspaceMemberService.resolveCurrentWorkspaceId(userId);
     if (!workspaceId) {
       await ctx.reply(ru.taskList.joinTeamFirst);
       return;
@@ -615,7 +615,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
   bot.action(/^team:close:ask$/, async (ctx) => {
     await ctx.answerCbQuery();
     const userId = String(ctx.from.id);
-    const workspaceId = await deps.workspaceMemberService.findLatestWorkspaceIdForUser(userId);
+    const workspaceId = await deps.workspaceMemberService.resolveCurrentWorkspaceId(userId);
     if (!workspaceId || !(await isWorkspaceOwner(workspaceId, userId))) {
       await ctx.reply(ru.team.onlyOwner);
       return;
@@ -666,7 +666,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     const memberUserId = ctx.match[1];
     await ctx.answerCbQuery();
     const actorUserId = String(ctx.from.id);
-    const workspaceId = await deps.workspaceMemberService.findLatestWorkspaceIdForUser(actorUserId);
+    const workspaceId = await deps.workspaceMemberService.resolveCurrentWorkspaceId(actorUserId);
     if (!workspaceId || !(await isWorkspaceOwner(workspaceId, actorUserId))) {
       await ctx.reply(ru.members.onlyOwner);
       return;
@@ -696,7 +696,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     const memberUserId = ctx.match[1];
     await ctx.answerCbQuery();
     const actorUserId = String(ctx.from.id);
-    const workspaceId = await deps.workspaceMemberService.findLatestWorkspaceIdForUser(actorUserId);
+    const workspaceId = await deps.workspaceMemberService.resolveCurrentWorkspaceId(actorUserId);
     if (!workspaceId) {
       await ctx.reply(ru.taskList.joinTeamFirst);
       return;
