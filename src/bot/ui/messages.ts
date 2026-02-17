@@ -59,7 +59,7 @@ export function renderTaskCard(task: {
   deadlineAt: Date | null;
   status: string;
   sourceText: string;
-}, viewerUserId: string): string {
+}, viewerUserId: string, assigneeDisplayName?: string): string {
   const statusRu =
     task.status === "ACTIVE"
       ? ru.status.active
@@ -76,7 +76,9 @@ export function renderTaskCard(task: {
     ru.wizard.created,
     `${ru.taskCard.title} ${ru.taskCard.idShort(shortTaskId(task.id))}`,
     ru.taskCard.taskTitle(compactTitle),
-    task.assigneeUserId === viewerUserId ? ru.taskCard.assigneeYou : ru.taskCard.assignee(task.assigneeUserId),
+    task.assigneeUserId === viewerUserId
+      ? ru.taskCard.assigneeYou
+      : ru.taskCard.assignee(assigneeDisplayName ?? task.assigneeUserId),
     ru.taskCard.priority(task.priority),
     ru.taskCard.deadline(formatDueDate(task.deadlineAt)),
     ru.taskCard.status(statusRu),

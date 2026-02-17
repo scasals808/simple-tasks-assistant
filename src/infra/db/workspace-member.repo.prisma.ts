@@ -44,6 +44,22 @@ export class WorkspaceMemberRepoPrisma implements WorkspaceMemberRepo {
       tgUsername?: string | null;
     }
   ): Promise<WorkspaceMember> {
+    const profileUpdate: {
+      tgFirstName?: string | null;
+      tgLastName?: string | null;
+      tgUsername?: string | null;
+    } = {};
+    if (profile) {
+      if ("tgFirstName" in profile) {
+        profileUpdate.tgFirstName = profile.tgFirstName ?? null;
+      }
+      if ("tgLastName" in profile) {
+        profileUpdate.tgLastName = profile.tgLastName ?? null;
+      }
+      if ("tgUsername" in profile) {
+        profileUpdate.tgUsername = profile.tgUsername ?? null;
+      }
+    }
     const row = await prisma.workspaceMember.upsert({
       where: {
         workspaceId_userId: {
@@ -65,9 +81,7 @@ export class WorkspaceMemberRepoPrisma implements WorkspaceMemberRepo {
       update: {
         role,
         status: "ACTIVE",
-        tgFirstName: profile?.tgFirstName ?? null,
-        tgLastName: profile?.tgLastName ?? null,
-        tgUsername: profile?.tgUsername ?? null,
+        ...profileUpdate,
         lastSeenAt
       }
     });

@@ -143,10 +143,20 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     },
     viewerUserId: string
   ): Promise<void> {
+    let assigneeDisplayName: string | undefined;
+    if (task.workspaceId) {
+      const assigneeMember = await deps.workspaceMemberService.findMember(
+        task.workspaceId,
+        task.assigneeUserId
+      );
+      if (assigneeMember) {
+        assigneeDisplayName = renderMemberDisplayName(assigneeMember);
+      }
+    }
     const ownerReviewActions = await canOwnerReviewTask(task, viewerUserId);
     await updateOrReply(
       ctx,
-      renderTaskCard(task, viewerUserId),
+      renderTaskCard(task, viewerUserId, assigneeDisplayName),
       taskActionsKeyboard(
         {
           id: task.id,
@@ -377,7 +387,12 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
           return `${index + 1}) ${color} ${task.priority} • ${title}\n👤 ${assignee}\n⏰ ${formatDueDate(task.deadlineAt)}`;
         })
         .join("\n\n");
-      const buttons = result.tasks.map((task) => [Markup.button.callback(ru.buttons.contextPlain, `task_open:${task.id}`)]);
+      const buttons = result.tasks.map((task) => [
+        Markup.button.callback(
+          `${ru.buttons.contextPlain}: ${shortenText(task.sourceText, 24)}`,
+          `task_open:${task.id}`
+        )
+      ]);
       await ctx.reply(`${ru.reviewList.header(result.tasks.length)}\n\n${body}`, Markup.inlineKeyboard(buttons));
     } catch {
       await ctx.reply(ru.reviewList.loadFailed);

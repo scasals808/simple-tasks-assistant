@@ -67,6 +67,22 @@ function assigneeLabel(member: {
   return ru.buttons.fallbackAssignee(member.userId);
 }
 
+function memberDisplayName(member: {
+  userId: string;
+  tgFirstName: string | null;
+  tgLastName: string | null;
+  tgUsername: string | null;
+}): string {
+  const fullName = `${member.tgFirstName ?? ""} ${member.tgLastName ?? ""}`.trim();
+  if (fullName) {
+    return fullName;
+  }
+  if (member.tgUsername) {
+    return `@${member.tgUsername}`;
+  }
+  return ru.buttons.fallbackAssignee(member.userId);
+}
+
 async function buildAssigneeKeyboardByWorkspace(
   deps: BotDeps,
   fallbackUserId: string,
@@ -299,9 +315,19 @@ export function registerDraftWizardRoutes(bot: Telegraf, deps: BotDeps): void {
       createSubmitNonce()
     ).reply_markup;
 
+    let assigneeDisplayName: string | undefined;
+    if (result.task.workspaceId) {
+      const assigneeMember = await deps.workspaceMemberService.findMember(
+        result.task.workspaceId,
+        result.task.assigneeUserId
+      );
+      if (assigneeMember) {
+        assigneeDisplayName = memberDisplayName(assigneeMember);
+      }
+    }
     await updateOrReply(
       ctx,
-      renderTaskCard(result.task, String(ctx.from.id)),
+      renderTaskCard(result.task, String(ctx.from.id), assigneeDisplayName),
       replyMarkup
     );
     await notifyAssigneeOnCreated(ctx, {

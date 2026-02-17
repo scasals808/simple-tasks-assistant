@@ -56,9 +56,6 @@ describe("WorkspaceMemberRepoPrisma", () => {
       update: {
         role: "MEMBER",
         status: "ACTIVE",
-        tgFirstName: null,
-        tgLastName: null,
-        tgUsername: null,
         lastSeenAt: now
       }
     });
