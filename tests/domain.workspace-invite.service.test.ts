@@ -4,6 +4,7 @@ import type { WorkspaceInviteRepo } from "../src/domain/ports/workspace-invite.r
 import type { WorkspaceMemberRepo } from "../src/domain/ports/workspace-member.repo.port.js";
 import type { WorkspaceRepo } from "../src/domain/ports/workspace.repo.port.js";
 import {
+  WORKSPACE_INVITE_ERROR_ALREADY_IN_TEAM,
   WorkspaceInviteError,
   WorkspaceInviteService
 } from "../src/domain/workspaces/workspace-invite.service.js";
@@ -165,6 +166,62 @@ describe("WorkspaceInviteService.acceptInvite", () => {
         title: "Team Workspace"
       }
     });
+  });
+
+  it("throws error when user already has active membership in any workspace", async () => {
+    const now = new Date("2026-02-16T00:00:00.000Z");
+    const workspaceInviteRepo: WorkspaceInviteRepo = {
+      findValidByToken: vi.fn(async () => ({
+        id: "wi-1",
+        token: "valid-token",
+        workspaceId: "ws-1",
+        expiresAt: null,
+        createdAt: now
+      })),
+      createInvite: vi.fn(async () => ({
+        id: "wi-1",
+        token: "valid-token",
+        workspaceId: "ws-1",
+        expiresAt: null,
+        createdAt: now
+      }))
+    };
+    const workspaceRepo: WorkspaceRepo = {
+      ensureByChatId: vi.fn(async () => makeWorkspace()),
+      findByChatId: vi.fn(async () => makeWorkspace()),
+      findById: vi.fn(async () => makeWorkspace()),
+      createManual: vi.fn(async () => makeWorkspace()),
+      findLatest: vi.fn(async () => makeWorkspace()),
+      updateOwner: vi.fn(async () => makeWorkspace())
+    };
+    const upsertMember = vi.fn(async () => ({
+      id: "wm-1",
+      workspaceId: "ws-1",
+      userId: "u-1",
+      role: "MEMBER" as const,
+      tgFirstName: null,
+      tgLastName: null,
+      tgUsername: null,
+      joinedAt: now,
+      lastSeenAt: now
+    }));
+    const workspaceMemberRepo: WorkspaceMemberRepo = {
+      upsertMember,
+      findMember: vi.fn(async () => null),
+      listByWorkspace: vi.fn(async () => []),
+      findLatestWorkspaceIdByUser: vi.fn(async () => "ws-active")
+    };
+    const service = new WorkspaceInviteService(
+      { now: () => now },
+      workspaceInviteRepo,
+      workspaceRepo,
+      workspaceMemberRepo
+    );
+
+    await expect(service.acceptInvite("valid-token", "u-1")).rejects.toEqual(
+      new WorkspaceInviteError(WORKSPACE_INVITE_ERROR_ALREADY_IN_TEAM)
+    );
+    expect(upsertMember).not.toHaveBeenCalled();
   });
 
   it("is idempotent on repeated accept (no duplicates)", async () => {

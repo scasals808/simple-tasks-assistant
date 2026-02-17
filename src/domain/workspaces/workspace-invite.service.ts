@@ -3,6 +3,8 @@ import type { WorkspaceInviteRepo } from "../ports/workspace-invite.repo.port.js
 import type { WorkspaceMemberRepo } from "../ports/workspace-member.repo.port.js";
 import type { WorkspaceRepo } from "../ports/workspace.repo.port.js";
 
+export const WORKSPACE_INVITE_ERROR_ALREADY_IN_TEAM = "User already has active workspace membership";
+
 export class WorkspaceInviteError extends Error {
   constructor(message: string) {
     super(message);
@@ -35,6 +37,10 @@ export class WorkspaceInviteService {
     }
   ): Promise<AcceptInviteResult> {
     const now = this.clock.now();
+    const activeWorkspaceId = await this.workspaceMemberRepo.findLatestWorkspaceIdByUser(userId);
+    if (activeWorkspaceId) {
+      throw new WorkspaceInviteError(WORKSPACE_INVITE_ERROR_ALREADY_IN_TEAM);
+    }
     const invite = await this.workspaceInviteRepo.findValidByToken(token, now);
     if (!invite) {
       throw new WorkspaceInviteError("Invite is invalid or expired");

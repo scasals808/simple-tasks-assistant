@@ -29,7 +29,8 @@ export const ru = {
   },
   startJoin: {
     joinedTeam: (titleOrId: string) => `Вы в команде: ${titleOrId}`,
-    invalidInvite: "Ссылка-приглашение недействительна или истекла."
+    invalidInvite: "Ссылка-приглашение недействительна или истекла.",
+    alreadyInTeam: "Вы уже состоите в команде. Сейчас можно быть только в одной."
   },
   onboarding: {
     noWorkspace:

@@ -3,6 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 import { handleStartJoin } from "../src/bot/start/handlers/start.join.js";
 import { handleStartPlain } from "../src/bot/start/handlers/start.plain.js";
 import { handleStartTask } from "../src/bot/start/handlers/start.task.js";
+import {
+  WORKSPACE_INVITE_ERROR_ALREADY_IN_TEAM,
+  WorkspaceInviteError
+} from "../src/domain/workspaces/workspace-invite.service.js";
 
 describe("start handlers", () => {
   it("handleStartJoin replies with joined team title", async () => {
@@ -61,6 +65,32 @@ describe("start handlers", () => {
 
     expect(reply).toHaveBeenCalledWith("Ссылка-приглашение недействительна или истекла.");
     expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
+  });
+
+  it("handleStartJoin replies already-in-team error from domain", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const reply = vi.fn(async () => undefined);
+    const ctx = {
+      from: { id: 42 },
+      update: { update_id: 1003 },
+      reply
+    };
+    const workspaceInviteService = {
+      acceptInvite: vi.fn(async () => {
+        throw new WorkspaceInviteError(WORKSPACE_INVITE_ERROR_ALREADY_IN_TEAM);
+      })
+    };
+
+    await handleStartJoin(
+      ctx,
+      workspaceInviteService as unknown as {
+        acceptInvite(token: string, userId: string): Promise<{ workspace: { id: string; title: string | null } }>;
+      },
+      "token-3"
+    );
+
+    expect(reply).toHaveBeenCalledWith("Вы уже состоите в команде. Сейчас можно быть только в одной.");
     warn.mockRestore();
   });
 

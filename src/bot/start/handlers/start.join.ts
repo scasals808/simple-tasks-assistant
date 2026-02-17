@@ -1,4 +1,8 @@
-import type { WorkspaceInviteService } from "../../../domain/workspaces/workspace-invite.service.js";
+import {
+  WORKSPACE_INVITE_ERROR_ALREADY_IN_TEAM,
+  WorkspaceInviteError,
+  type WorkspaceInviteService
+} from "../../../domain/workspaces/workspace-invite.service.js";
 import { ru } from "../../texts/ru.js";
 
 function tokenShort(token: string): string {
@@ -50,6 +54,10 @@ export async function handleStartJoin(
     await ctx.reply(ru.startJoin.joinedTeam(accepted.workspace.title ?? accepted.workspace.id));
   } catch (error: unknown) {
     logStartPayloadError(ctx, token, error);
+    if (error instanceof WorkspaceInviteError && error.message === WORKSPACE_INVITE_ERROR_ALREADY_IN_TEAM) {
+      await ctx.reply(ru.startJoin.alreadyInTeam);
+      return;
+    }
     await ctx.reply(ru.startJoin.invalidInvite);
   }
 }
