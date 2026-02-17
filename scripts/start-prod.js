@@ -35,6 +35,7 @@ function main() {
     console.error("[startup] dist/main.js not found. Ensure build step runs before start.");
     process.exit(1);
   }
+  console.log("[startup] entrypoint: dist/main.js");
 
   const port = process.env.PORT ?? "3000";
   console.log(`[startup] http: listen PORT=${port}`);
