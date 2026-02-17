@@ -2,7 +2,7 @@ import Fastify from "fastify";
 import type { Telegraf } from "telegraf";
 import type { Update } from "telegraf/types";
 
-import { createBot } from "./bot/index.js";
+import { createBot } from "./bot/createBot.js";
 import { container } from "./app/container.js";
 import { loadEnv } from "./config/env.js";
 
