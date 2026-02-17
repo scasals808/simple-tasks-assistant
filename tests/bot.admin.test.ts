@@ -13,9 +13,15 @@ const telegrafMock = vi.hoisted(() => {
     hearsHandlers: Array<{ triggers: string[]; handler: Handler }> = [];
     startHandler: Handler | null = null;
     onHandlers: Array<{ event: string; handler: Handler }> = [];
+    middlewares: Handler[] = [];
 
     start(handler: Handler): this {
       this.startHandler = handler;
+      return this;
+    }
+
+    use(handler: Handler): this {
+      this.middlewares.push(handler);
       return this;
     }
 

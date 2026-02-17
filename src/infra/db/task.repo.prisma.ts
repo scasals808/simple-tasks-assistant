@@ -130,6 +130,13 @@ export class PrismaTaskRepo implements TaskRepo {
     return mapTask(row);
   }
 
+  async findById(taskId: string): Promise<Task | null> {
+    const row = await prisma.task.findUnique({
+      where: { id: taskId }
+    });
+    return row ? mapTask(row) : null;
+  }
+
   async createDraft(input: {
     token: string;
     workspaceId?: string | null;

@@ -9,7 +9,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
   async function handleTaskList(
     ctx: {
       from: { id: number };
-      reply(text: string): Promise<unknown>;
+      reply(text: string, extra?: unknown): Promise<unknown>;
     },
     kind: "assigned" | "created"
   ): Promise<void> {
@@ -61,6 +61,9 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
       }
 
       const body = result.tasks.map((task) => renderTaskLine(task)).join("\n");
+      const contextButtons = result.tasks.map((task) => [
+        Markup.button.callback(`Show context (${task.id})`, `task_context:${task.id}`)
+      ]);
       logTaskList({
         handler: kind === "assigned" ? "list_assigned_tasks" : "list_created_tasks",
         userId,
@@ -68,7 +71,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
         count: result.tasks.length,
         queryMs: Date.now() - startedAt
       });
-      await ctx.reply(`${header}\n${body}`);
+      await ctx.reply(`${header}\n${body}`, Markup.inlineKeyboard(contextButtons));
     } catch {
       logTaskList({
         handler: kind === "assigned" ? "list_assigned_tasks" : "list_created_tasks",
@@ -327,5 +330,37 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
         );
       }
     }
+  });
+
+  bot.action(/^task_context:(.+)$/, async (ctx) => {
+    const taskId = ctx.match[1];
+    await ctx.answerCbQuery();
+    const viewerUserId = String(ctx.from.id);
+    const task = await deps.taskService.getTaskForViewer(taskId, viewerUserId);
+    if (!task) {
+      await ctx.reply("Task not found");
+      return;
+    }
+
+    const sourceChatIdNum = Number(task.sourceChatId);
+    const sourceMessageIdNum = Number(task.sourceMessageId);
+    const targetChatId =
+      "chat" in ctx && ctx.chat && "id" in ctx.chat ? ctx.chat.id : ctx.from.id;
+    if (Number.isFinite(sourceChatIdNum) && Number.isFinite(sourceMessageIdNum)) {
+      try {
+        await ctx.telegram.copyMessage(targetChatId, sourceChatIdNum, sourceMessageIdNum);
+        return;
+      } catch (error: unknown) {
+        const err = error as { response?: { error_code?: number } };
+        console.warn("[bot.task_context.copy_failed]", {
+          chat_id: task.sourceChatId,
+          message_id: task.sourceMessageId,
+          error_code: err.response?.error_code ?? null
+        });
+      }
+    }
+
+    const fallback = task.sourceText.length > 500 ? `${task.sourceText.slice(0, 500)}...` : task.sourceText;
+    await ctx.reply(fallback || "-");
   });
 }

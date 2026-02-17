@@ -179,6 +179,17 @@ export class TaskService {
     return this.taskRepo.findByAssigneeUserId(viewerUserId);
   }
 
+  async getTaskForViewer(taskId: string, viewerUserId: string): Promise<Task | null> {
+    const task = await this.taskRepo.findById(taskId);
+    if (!task) {
+      return null;
+    }
+    if (task.creatorUserId !== viewerUserId && task.assigneeUserId !== viewerUserId) {
+      return null;
+    }
+    return task;
+  }
+
   async startDraftWizard(token: string, requesterUserId: string): Promise<StartDraftWizardResult> {
     const draft = await this.taskRepo.findDraftByToken(token);
     if (!draft || draft.creatorUserId !== requesterUserId) {

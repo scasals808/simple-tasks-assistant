@@ -35,6 +35,7 @@ export type CreateFromDraftResult =
 
 export interface TaskRepo {
   create(task: Task): Promise<Task>;
+  findById(taskId: string): Promise<Task | null>;
   createDraft(input: {
     token: string;
     workspaceId?: string | null;
