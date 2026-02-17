@@ -35,11 +35,17 @@ export function registerInviteRoutes(bot: Telegraf, deps: BotDeps): void {
     if (typeof userId !== "number") {
       return false;
     }
-    const workspaceId = await deps.workspaceMemberService.findLatestWorkspaceIdForUser(String(userId));
+    const userIdText = String(userId);
+    const workspaceId = await deps.workspaceMemberService.findLatestWorkspaceIdForUser(userIdText);
     if (!workspaceId) {
       return false;
     }
-    const membership = await deps.workspaceMemberService.findMember(workspaceId, String(userId));
+    const workspace = await deps.workspaceService.findWorkspaceById(workspaceId);
+    if (workspace?.ownerUserId === userIdText) {
+      await deps.workspaceMemberService.upsertOwnerMembership(workspaceId, userIdText);
+      return true;
+    }
+    const membership = await deps.workspaceMemberService.findMember(workspaceId, userIdText);
     return membership?.role === "OWNER";
   }
 

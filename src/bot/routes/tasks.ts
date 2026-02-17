@@ -285,6 +285,14 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
         tgLastName: ctx.from.last_name ?? null,
         tgUsername: ctx.from.username ?? null
       });
+      const workspace = await deps.workspaceService.findWorkspaceById(workspaceId);
+      if (workspace?.ownerUserId === userId) {
+        await deps.workspaceMemberService.upsertOwnerMembership(workspaceId, userId, {
+          tgFirstName: ctx.from.first_name ?? null,
+          tgLastName: ctx.from.last_name ?? null,
+          tgUsername: ctx.from.username ?? null
+        });
+      }
 
       const result = await deps.taskService.listOnReviewTasks({
         workspaceId,
