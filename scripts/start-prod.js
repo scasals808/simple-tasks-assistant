@@ -1,35 +1,45 @@
 #!/usr/bin/env node
 
 const { spawnSync } = require("node:child_process");
+const { existsSync } = require("node:fs");
 
-function run(command, args) {
+function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
     stdio: "inherit",
-    env: process.env
+    env: process.env,
+    ...options
   });
 
-  if (typeof result.status === "number") {
-    return result.status;
-  }
-
-  return 1;
+  return result;
 }
 
 function main() {
-  const isProduction = process.env.NODE_ENV === "production";
+  console.log("[startup] begin");
+  console.log("[startup] migrations: start");
 
-  if (isProduction) {
-    console.log("[startup] running prisma migrate deploy");
-    const migrateCode = run("pnpm", ["prisma", "migrate", "deploy"]);
-    if (migrateCode !== 0) {
-      process.exit(1);
-    }
-    console.log("[startup] migrations applied");
+  const migrateResult = run("pnpm", ["prisma", "migrate", "deploy"], {
+    timeout: 90_000,
+    killSignal: "SIGTERM"
+  });
+  if (migrateResult.error && migrateResult.error.code === "ETIMEDOUT") {
+    console.error("[startup] migrations: timeout after 90s");
+    process.exit(1);
+  }
+  if (typeof migrateResult.status !== "number" || migrateResult.status !== 0) {
+    console.error("[startup] migrations: failed");
+    process.exit(1);
+  }
+  console.log("[startup] migrations: ok");
+
+  if (!existsSync("dist/main.js")) {
+    console.error("[startup] dist/main.js not found. Ensure build step runs before start.");
+    process.exit(1);
   }
 
-  console.log("[startup] starting server");
-  const startCode = run("pnpm", ["exec", "tsx", "src/main.ts"]);
-  process.exit(startCode);
+  const port = process.env.PORT ?? "3000";
+  console.log(`[startup] http: listen PORT=${port}`);
+  const startResult = run("node", ["dist/main.js"]);
+  process.exit(typeof startResult.status === "number" ? startResult.status : 1);
 }
 
 main();

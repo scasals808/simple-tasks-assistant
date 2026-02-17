@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import type { Telegraf } from "telegraf";
 import type { Update } from "telegraf/types";
 
 import { createBot } from "./bot/index.js";
@@ -7,17 +8,25 @@ import { loadEnv } from "./config/env.js";
 
 const env = loadEnv();
 const app = Fastify({ logger: true });
-const bot = createBot(
-  env.telegramBotToken,
-  container.taskService,
-  env.telegramBotUsername,
-  container.workspaceService,
-  container.workspaceMemberService,
-  container.workspaceInviteService,
-  container.workspaceAdminService,
-  env.adminUserIds,
-  env.allowAdminReset
-);
+let bot: Telegraf | null = null;
+
+function getBot(): Telegraf {
+  if (bot) {
+    return bot;
+  }
+  bot = createBot(
+    env.telegramBotToken,
+    container.taskService,
+    env.telegramBotUsername,
+    container.workspaceService,
+    container.workspaceMemberService,
+    container.workspaceInviteService,
+    container.workspaceAdminService,
+    env.adminUserIds,
+    env.allowAdminReset
+  );
+  return bot;
+}
 
 app.get("/health", async () => ({ ok: true }));
 
@@ -36,16 +45,22 @@ app.post("/telegram/webhook", async (request, reply) => {
   }
 
   const update = request.body as Update;
+  const activeBot = getBot();
 
   // Webhook-only mode: acknowledge fast and process update asynchronously.
-  void bot.handleUpdate(update).catch((error: unknown) => {
+  void activeBot.handleUpdate(update).catch((error: unknown) => {
     app.log.error({ error }, "Failed to process Telegram update");
   });
 
   return { ok: true };
 });
 
-app.listen({ host: "0.0.0.0", port: env.port }).catch((error) => {
+async function bootstrap(): Promise<void> {
+  await app.listen({ host: "0.0.0.0", port: env.port });
+  console.log(`[startup] http: listen PORT=${env.port}`);
+}
+
+bootstrap().catch((error) => {
   app.log.error(error);
   throw error;
 });
