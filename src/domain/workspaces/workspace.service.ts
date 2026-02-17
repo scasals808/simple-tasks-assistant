@@ -12,6 +12,15 @@ function isUniqueViolation(error: unknown): boolean {
 export class WorkspaceService {
   constructor(private readonly workspaceRepo: WorkspaceRepo) {}
 
+  async ensureWorkspaceForUser(userId: string): Promise<Workspace> {
+    const personalChatId = `owner:${userId}`;
+    const workspace = await this.workspaceRepo.ensureByChatId(personalChatId);
+    if (workspace.ownerUserId === userId) {
+      return workspace;
+    }
+    return this.workspaceRepo.updateOwner(workspace.id, userId);
+  }
+
   async findWorkspaceById(id: string): Promise<Workspace | null> {
     return this.workspaceRepo.findById(id);
   }
