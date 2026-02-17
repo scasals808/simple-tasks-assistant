@@ -70,7 +70,6 @@ export function renderTaskCard(task: {
           ? ru.status.closed
           : ru.status.unknown;
 
-  const compactTitle = shortenText(task.sourceText, 80);
   const safeContext = shortenText(task.sourceText, 800);
   const returnComment = (task.lastReturnComment ?? "").trim();
   const assigneeLine =
@@ -80,7 +79,6 @@ export function renderTaskCard(task: {
 
   const lines = [
     `${ru.taskCard.title} ${ru.taskCard.idShort(shortTaskId(task.id))}`,
-    ru.taskCard.taskTitle(compactTitle),
     assigneeLine,
     ...(assigneeRemoved ? [ru.taskCard.assigneeRemovedWarning] : []),
     ru.taskCard.priority(task.priority),

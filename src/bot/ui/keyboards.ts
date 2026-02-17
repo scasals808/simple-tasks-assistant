@@ -101,7 +101,7 @@ export function taskActionsKeyboard(
     row.push(Markup.button.callback(ru.buttons.acceptReview, `task_accept:ask:${task.id}`));
     row.push(Markup.button.callback(ru.buttons.returnToWork, `task_return:ask:${task.id}`));
   }
-  if (showOwnerReassign) {
+  if (showOwnerReassign && task.status !== "CLOSED") {
     row.push(Markup.button.callback(ru.buttons.reassign, `task_reassign:pick:${task.id}`));
   }
   return Markup.inlineKeyboard(row.length > 0 ? [row] : []);

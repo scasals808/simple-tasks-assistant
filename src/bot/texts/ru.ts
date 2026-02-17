@@ -70,7 +70,6 @@ export const ru = {
   taskCard: {
     title: "Карточка задачи",
     idShort: (shortId: string) => `#${shortId}`,
-    taskTitle: (title: string) => `${title}`,
     assignee: (assigneeUserId: string) => `👤 Исполнитель: ${assigneeUserId}`,
     assigneeYou: "👤 Исполнитель: вы",
     assigneeRemovedWarning: "⚠️ Исполнитель исключён",
