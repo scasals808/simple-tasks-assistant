@@ -138,6 +138,27 @@ export class TaskService {
     return this.taskRepo.createDraft(input);
   }
 
+  async createOrReuseGroupDraft(input: {
+    token: string;
+    workspaceId?: string | null;
+    sourceChatId: string;
+    sourceMessageId: string;
+    sourceText: string;
+    sourceLink: string | null;
+    creatorUserId: string;
+  }): Promise<{ draft: TaskDraft; reused: boolean }> {
+    const existing = await this.taskRepo.findPendingDraftBySource(
+      input.sourceChatId,
+      input.sourceMessageId,
+      input.creatorUserId
+    );
+    if (existing) {
+      return { draft: existing, reused: true };
+    }
+    const draft = await this.taskRepo.createDraft(input);
+    return { draft, reused: false };
+  }
+
   async startDmDraft(input: {
     workspaceId: string;
     creatorUserId: string;

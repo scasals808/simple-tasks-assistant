@@ -30,7 +30,7 @@ describe("start handlers", () => {
     );
 
     expect(workspaceInviteService.acceptInvite).toHaveBeenCalledWith("token-1", "42");
-    expect(reply).toHaveBeenCalledWith("Joined team: Alpha Team");
+    expect(reply).toHaveBeenCalledWith("Вы в команде: Alpha Team");
   });
 
   it("handleStartJoin logs and replies on invite error", async () => {
@@ -55,7 +55,7 @@ describe("start handlers", () => {
       "token-2"
     );
 
-    expect(reply).toHaveBeenCalledWith("Invite is invalid or expired");
+    expect(reply).toHaveBeenCalledWith("Ссылка-приглашение недействительна или истекла.");
     expect(warn).toHaveBeenCalledTimes(1);
     warn.mockRestore();
   });
@@ -76,7 +76,7 @@ describe("start handlers", () => {
       () => ({})
     );
 
-    expect(reply).toHaveBeenCalledWith("Черновик не найден");
+    expect(reply).toHaveBeenCalledWith("Черновик не найден.");
   });
 
   it("handleStartTask replies already exists", async () => {
@@ -101,7 +101,7 @@ describe("start handlers", () => {
       () => ({})
     );
 
-    expect(reply).toHaveBeenCalledWith("Задача уже существует (id: task-1)");
+    expect(reply).toHaveBeenCalledWith("Задача уже существует (id: task-1).");
   });
 
   it("handleStartTask starts assignee step", async () => {
@@ -129,7 +129,7 @@ describe("start handlers", () => {
     );
 
     expect(assigneeKeyboard).toHaveBeenCalledWith("task-token", "-1001");
-    expect(reply).toHaveBeenCalledWith("Choose assignee", keyboard);
+    expect(reply).toHaveBeenCalledWith("Выберите исполнителя.", keyboard);
   });
 
   it("handleStartPlain sends welcome text", async () => {

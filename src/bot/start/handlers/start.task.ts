@@ -1,4 +1,5 @@
 import type { TaskService } from "../../../domain/tasks/task.service.js";
+import { ru } from "../../texts/ru.js";
 
 export async function handleStartTask(
   ctx: {
@@ -11,14 +12,14 @@ export async function handleStartTask(
 ): Promise<void> {
   const started = await taskService.startDraftWizard(token, String(ctx.from.id));
   if (started.status === "NOT_FOUND") {
-    await ctx.reply("Черновик не найден");
+    await ctx.reply(ru.startTask.draftNotFound);
     return;
   }
 
   if (started.status === "ALREADY_EXISTS") {
-    await ctx.reply(`Задача уже существует (id: ${started.task.id})`);
+    await ctx.reply(ru.startTask.alreadyExists(started.task.id));
     return;
   }
 
-  await ctx.reply("Choose assignee", await assigneeKeyboard(token, started.draft.sourceChatId));
+  await ctx.reply(ru.startTask.chooseAssignee, await assigneeKeyboard(token, started.draft.sourceChatId));
 }

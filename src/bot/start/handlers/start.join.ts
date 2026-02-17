@@ -1,4 +1,5 @@
 import type { WorkspaceInviteService } from "../../../domain/workspaces/workspace-invite.service.js";
+import { ru } from "../../texts/ru.js";
 
 function tokenShort(token: string): string {
   return token.slice(0, 8);
@@ -42,9 +43,9 @@ export async function handleStartJoin(
 ): Promise<void> {
   try {
     const accepted = await workspaceInviteService.acceptInvite(token, String(ctx.from.id));
-    await ctx.reply(`Joined team: ${accepted.workspace.title ?? accepted.workspace.id}`);
+    await ctx.reply(ru.startJoin.joinedTeam(accepted.workspace.title ?? accepted.workspace.id));
   } catch (error: unknown) {
     logStartPayloadError(ctx, token, error);
-    await ctx.reply("Invite is invalid or expired");
+    await ctx.reply(ru.startJoin.invalidInvite);
   }
 }

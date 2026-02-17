@@ -190,3 +190,29 @@ export function logDmCreateTask(input: {
   }
   console.log("[bot.dm_create_task]", payload);
 }
+
+export function logGroupTask(input: {
+  event: "received" | "draft_created" | "draft_found" | "error";
+  chatId: string | null;
+  messageId: string | null;
+  userId: string | null;
+  draftId?: string | null;
+  token?: string | null;
+  errorCode?: string | null;
+}): void {
+  const payload = {
+    handler: "group_task",
+    event: input.event,
+    chat_id: input.chatId,
+    message_id: input.messageId,
+    user_id: input.userId,
+    draft_id: input.draftId ?? null,
+    token: input.token ? tokenShort(input.token) : null,
+    error_code: input.errorCode ?? null
+  };
+  if (input.event === "error") {
+    console.warn("[bot.group_task]", payload);
+    return;
+  }
+  console.log("[bot.group_task]", payload);
+}

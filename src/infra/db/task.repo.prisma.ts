@@ -173,6 +173,25 @@ export class PrismaTaskRepo implements TaskRepo {
     return row ? mapDraft(row) : null;
   }
 
+  async findPendingDraftBySource(
+    sourceChatId: string,
+    sourceMessageId: string,
+    creatorUserId: string
+  ): Promise<TaskDraft | null> {
+    const row = await prisma.taskDraft.findFirst({
+      where: {
+        sourceChatId,
+        sourceMessageId,
+        creatorUserId,
+        status: "PENDING"
+      },
+      orderBy: {
+        updatedAt: "desc"
+      }
+    });
+    return row ? mapDraft(row) : null;
+  }
+
   async findTaskBySource(sourceChatId: string, sourceMessageId: string): Promise<Task | null> {
     const row = await prisma.task.findUnique({
       where: {

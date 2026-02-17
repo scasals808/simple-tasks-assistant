@@ -1,9 +1,10 @@
 import { Markup, type Telegraf } from "telegraf";
 
 import type { BotDeps } from "../types.js";
+import { ru } from "../texts/ru.js";
 import { buildSourceLink } from "../ui/keyboards.js";
 import { renderTaskLine, renderTaskListHeader } from "../ui/messages.js";
-import { logDmCreateTask, logStep, logTaskList } from "./logging.js";
+import { logDmCreateTask, logGroupTask, logStep, logTaskList } from "./logging.js";
 
 export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
   async function handleTaskList(
@@ -26,7 +27,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
           queryMs: Date.now() - startedAt,
           errorCode: "NOT_IN_WORKSPACE"
         });
-        await ctx.reply("Сначала вступите в команду по invite-ссылке.");
+        await ctx.reply(ru.taskList.joinTeamFirst);
         return;
       }
 
@@ -43,7 +44,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
           queryMs: Date.now() - startedAt,
           errorCode: "NOT_IN_WORKSPACE"
         });
-        await ctx.reply("Сначала вступите в команду по invite-ссылке.");
+        await ctx.reply(ru.taskList.joinTeamFirst);
         return;
       }
 
@@ -56,7 +57,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
           count: 0,
           queryMs: Date.now() - startedAt
         });
-        await ctx.reply(`${header}\nПока пусто.`);
+        await ctx.reply(`${header}\n${ru.taskList.empty}`);
         return;
       }
 
@@ -81,7 +82,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
         queryMs: Date.now() - startedAt,
         errorCode: "LIST_FAILED"
       });
-      await ctx.reply("Не удалось загрузить задачи.");
+      await ctx.reply(ru.taskList.loadFailed);
     }
   }
 
@@ -103,7 +104,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
         step: "start",
         errorCode: "NOT_IN_WORKSPACE"
       });
-      await ctx.reply("You are not connected to a team. Ask for invite link.");
+      await ctx.reply(ru.dmTask.notInWorkspace);
       return;
     }
     const draft = await deps.taskService.startDmDraft({
@@ -116,7 +117,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
       draftToken: draft.token,
       step: "enter_text"
     });
-    await ctx.reply("Send task text in one message.");
+    await ctx.reply(ru.dmTask.enterText);
   }
 
   bot.hears(["📥 Мне назначено", "✍️ Я создал", "➕ Новая задача", "ℹ️ Помощь"], async (ctx) => {
@@ -154,7 +155,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
       );
       return;
     }
-    await ctx.reply("Not implemented yet");
+    await ctx.reply(ru.common.notImplemented);
   });
 
   bot.command("new_task", async (ctx) => {
@@ -206,7 +207,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     };
 
     if (!message.reply_to_message) {
-      await ctx.reply("Reply to a message and send /task");
+      await ctx.reply(ru.groupTask.needReply);
       return;
     }
 
@@ -214,31 +215,57 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
       return;
     }
 
-    if (message.reply_to_message.from?.id !== message.from.id) {
-      return;
-    }
-
-    const tokenForTask = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    await deps.taskService.createDraft({
-      token: tokenForTask,
-      workspaceId: (await deps.workspaceService.findWorkspaceByChatId(String(message.chat.id)))?.id ?? null,
-      sourceChatId: String(message.chat.id),
-      sourceMessageId: String(message.reply_to_message.message_id),
-      sourceText: message.reply_to_message.text ?? message.reply_to_message.caption ?? "",
-      sourceLink: buildSourceLink(
-        message.chat.id ?? 0,
-        message.chat.username,
-        message.reply_to_message.message_id ?? 0
-      ),
-      creatorUserId: String(message.from.id)
+    const chatId = String(message.chat.id);
+    const sourceMessageId = String(message.reply_to_message.message_id);
+    const userId = String(message.from.id);
+    logGroupTask({
+      event: "received",
+      chatId,
+      messageId: sourceMessageId,
+      userId
     });
 
-    await ctx.reply(
-      "Create task?",
-      Markup.inlineKeyboard([
-        Markup.button.callback("➕ Create task", `create_task:${tokenForTask}`)
-      ])
-    );
+    try {
+      const tokenForTask = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const draftResult = await deps.taskService.createOrReuseGroupDraft({
+        token: tokenForTask,
+        workspaceId: (await deps.workspaceService.findWorkspaceByChatId(chatId))?.id ?? null,
+        sourceChatId: chatId,
+        sourceMessageId,
+        sourceText: message.reply_to_message.text ?? message.reply_to_message.caption ?? "",
+        sourceLink: buildSourceLink(
+          message.chat.id ?? 0,
+          message.chat.username,
+          message.reply_to_message.message_id ?? 0
+        ),
+        creatorUserId: userId
+      });
+
+      logGroupTask({
+        event: draftResult.reused ? "draft_found" : "draft_created",
+        chatId,
+        messageId: sourceMessageId,
+        userId,
+        draftId: draftResult.draft.id,
+        token: draftResult.draft.token
+      });
+
+      await ctx.reply(
+        ru.groupTask.prompt,
+        Markup.inlineKeyboard([
+          Markup.button.callback(ru.groupTask.buttonCreate, `create_task:${draftResult.draft.token}`)
+        ])
+      );
+    } catch {
+      logGroupTask({
+        event: "error",
+        chatId,
+        messageId: sourceMessageId,
+        userId,
+        errorCode: "DRAFT_CREATE_FAILED"
+      });
+      await ctx.reply(ru.groupTask.createFailed);
+    }
   });
 
   bot.action(/^create_task:(.+)$/, async (ctx) => {
@@ -267,7 +294,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
         error
       );
       try {
-        await ctx.answerCbQuery("Opening bot...");
+        await ctx.answerCbQuery();
         logStep(
           ctx,
           "create_task",
@@ -285,20 +312,6 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
           callbackChatId,
           callbackMsgId,
           ackError
-        );
-      }
-      try {
-        await ctx.telegram.sendMessage(ctx.from.id, `Open bot: ${deepLink}`);
-        logStep(ctx, "create_task", tokenForTask, "dm_fallback", callbackChatId, callbackMsgId);
-      } catch (dmError: unknown) {
-        logStep(
-          ctx,
-          "create_task",
-          tokenForTask,
-          "dm_fallback",
-          callbackChatId,
-          callbackMsgId,
-          dmError
         );
       }
     }
@@ -338,7 +351,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     const viewerUserId = String(ctx.from.id);
     const task = await deps.taskService.getTaskForViewer(taskId, viewerUserId);
     if (!task) {
-      await ctx.reply("Task not found");
+      await ctx.reply(ru.common.taskNotFound);
       return;
     }
 

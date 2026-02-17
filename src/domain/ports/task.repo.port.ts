@@ -47,6 +47,11 @@ export interface TaskRepo {
     creatorUserId: string;
   }): Promise<TaskDraft>;
   findDraftByToken(token: string): Promise<TaskDraft | null>;
+  findPendingDraftBySource(
+    sourceChatId: string,
+    sourceMessageId: string,
+    creatorUserId: string
+  ): Promise<TaskDraft | null>;
   findTaskBySource(sourceChatId: string, sourceMessageId: string): Promise<Task | null>;
   findByAssigneeUserId(assigneeUserId: string): Promise<Task[]>;
   listAssignedTasks(workspaceId: string, viewerUserId: string, limit: number): Promise<Task[]>;
