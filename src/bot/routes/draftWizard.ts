@@ -304,6 +304,9 @@ export function registerDraftWizardRoutes(bot: Telegraf, deps: BotDeps): void {
     }
 
     logStep(ctx, "draft_confirm", tokenForTask, "step_final", callbackChatId, callbackMsgId);
+    const ownerCanReassign =
+      !!result.task.workspaceId &&
+      (await deps.workspaceService.findWorkspaceById(result.task.workspaceId))?.ownerUserId === String(ctx.from.id);
     const replyMarkup = taskActionsKeyboard(
       {
         id: result.task.id,
@@ -312,7 +315,10 @@ export function registerDraftWizardRoutes(bot: Telegraf, deps: BotDeps): void {
         status: result.task.status
       },
       String(ctx.from.id),
-      createSubmitNonce()
+      createSubmitNonce(),
+      false,
+      true,
+      ownerCanReassign
     ).reply_markup;
 
     let assigneeDisplayName: string | undefined;

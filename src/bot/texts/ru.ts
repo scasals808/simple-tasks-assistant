@@ -66,7 +66,6 @@ export const ru = {
     askDeadlineManual: "Отправьте дату в формате ГГГГ-ММ-ДД.",
     confirmCreate: "Подтвердите создание задачи.",
     invalidDate: "Некорректная дата. Используйте формат ГГГГ-ММ-ДД.",
-    created: "Задача создана."
   },
   taskCard: {
     title: "Карточка задачи",
@@ -78,6 +77,7 @@ export const ru = {
     priority: (priority: string) => `⚡ Приоритет: ${priority}`,
     deadline: (value: string) => `⏰ Срок: ${value}`,
     status: (value: string) => `📌 Статус: ${value}`,
+    returnCommentTitle: "💬 Комментарий при возврате:",
     text: (value: string) => `🧾 Контекст:\n${value}`
   },
   submitForReview: {

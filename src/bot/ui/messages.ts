@@ -59,6 +59,7 @@ export function renderTaskCard(task: {
   deadlineAt: Date | null;
   status: string;
   sourceText: string;
+  lastReturnComment?: string | null;
 }, viewerUserId: string, assigneeDisplayName?: string, assigneeRemoved = false): string {
   const statusRu =
     task.status === "ACTIVE"
@@ -71,13 +72,13 @@ export function renderTaskCard(task: {
 
   const compactTitle = shortenText(task.sourceText, 80);
   const safeContext = shortenText(task.sourceText, 800);
+  const returnComment = (task.lastReturnComment ?? "").trim();
   const assigneeLine =
     task.assigneeUserId === viewerUserId
       ? ru.taskCard.assigneeYou
       : ru.taskCard.assignee(assigneeDisplayName ?? task.assigneeUserId);
 
   const lines = [
-    ru.wizard.created,
     `${ru.taskCard.title} ${ru.taskCard.idShort(shortTaskId(task.id))}`,
     ru.taskCard.taskTitle(compactTitle),
     assigneeLine,
@@ -85,6 +86,7 @@ export function renderTaskCard(task: {
     ru.taskCard.priority(task.priority),
     ru.taskCard.deadline(formatDueDate(task.deadlineAt)),
     ru.taskCard.status(statusRu),
+    ...(returnComment ? [ru.taskCard.returnCommentTitle, returnComment] : []),
     ru.taskCard.text(safeContext)
   ];
   return lines.join("\n");
