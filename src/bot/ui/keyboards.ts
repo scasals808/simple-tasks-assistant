@@ -87,7 +87,8 @@ export function taskActionsKeyboard(
   viewerUserId: string,
   nonce: string,
   showOwnerReviewActions = false,
-  inContext = false
+  inContext = false,
+  showOwnerReassign = false
 ) {
   const row = [];
   if (!inContext) {
@@ -99,6 +100,9 @@ export function taskActionsKeyboard(
   if (showOwnerReviewActions && task.status === "ON_REVIEW") {
     row.push(Markup.button.callback(ru.buttons.acceptReview, `task_accept:ask:${task.id}`));
     row.push(Markup.button.callback(ru.buttons.returnToWork, `task_return:ask:${task.id}`));
+  }
+  if (showOwnerReassign) {
+    row.push(Markup.button.callback(ru.buttons.reassign, `task_reassign:pick:${task.id}`));
   }
   return Markup.inlineKeyboard(row.length > 0 ? [row] : []);
 }

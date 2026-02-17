@@ -71,14 +71,16 @@ export function renderTaskCard(task: {
 
   const compactTitle = shortenText(task.sourceText, 80);
   const safeContext = shortenText(task.sourceText, 800);
+  const assigneeLine =
+    task.assigneeUserId === viewerUserId
+      ? ru.taskCard.assigneeYou
+      : ru.taskCard.assignee(assigneeDisplayName ?? task.assigneeUserId);
 
   return [
     ru.wizard.created,
     `${ru.taskCard.title} ${ru.taskCard.idShort(shortTaskId(task.id))}`,
     ru.taskCard.taskTitle(compactTitle),
-    task.assigneeUserId === viewerUserId
-      ? ru.taskCard.assigneeYou
-      : ru.taskCard.assignee(assigneeDisplayName ?? task.assigneeUserId),
+    assigneeLine,
     ru.taskCard.priority(task.priority),
     ru.taskCard.deadline(formatDueDate(task.deadlineAt)),
     ru.taskCard.status(statusRu),

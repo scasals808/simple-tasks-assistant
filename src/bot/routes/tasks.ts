@@ -172,7 +172,8 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
         viewerUserId,
         createActionNonce(),
         ownerReviewActions,
-        true
+        true,
+        ownerReviewActions
       ).reply_markup
     );
   }
@@ -991,6 +992,125 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     const task = await deps.taskService.getTaskForViewer(taskId, viewerUserId);
     if (!task) {
       await ctx.reply(ru.common.taskNotFound);
+      return;
+    }
+    await replyTaskCardWithActions(ctx, task, viewerUserId);
+  });
+
+  bot.action(/^task_reassign:pick:([^:]+)$/, async (ctx) => {
+    const taskId = ctx.match[1];
+    await ctx.answerCbQuery();
+    const viewerUserId = String(ctx.from.id);
+    const task = await deps.taskService.getTaskForViewer(taskId, viewerUserId);
+    if (!task) {
+      await ctx.reply(ru.reassign.taskNotFound);
+      return;
+    }
+    if (!task.workspaceId || !(await canOwnerReviewTask(task, viewerUserId))) {
+      await ctx.reply(ru.reassign.forbidden);
+      return;
+    }
+    const members = (await deps.workspaceMemberService.listWorkspaceMembers(task.workspaceId)).slice(0, 12);
+    if (members.length === 0) {
+      await ctx.reply(ru.reassign.invalidAssignee);
+      return;
+    }
+    const buttons = members.map((member) => [
+      Markup.button.callback(
+        shortenText(renderMemberDisplayName(member), 28),
+        `task_reassign:to:${task.id}:${member.userId}`
+      )
+    ]);
+    const title = shortenText(task.sourceText, 48);
+    await updateOrReply(
+      ctx,
+      `${ru.reassign.pickAssigneeForTask(title)}\n${ru.reassign.pickAssignee}`,
+      Markup.inlineKeyboard(buttons).reply_markup
+    );
+  });
+
+  bot.action(/^task_reassign:to:([^:]+):([^:]+)$/, async (ctx) => {
+    const taskId = ctx.match[1];
+    const newAssigneeId = ctx.match[2];
+    await ctx.answerCbQuery();
+    const viewerUserId = String(ctx.from.id);
+    const task = await deps.taskService.getTaskForViewer(taskId, viewerUserId);
+    if (!task) {
+      await ctx.reply(ru.reassign.taskNotFound);
+      return;
+    }
+    if (!task.workspaceId || !(await canOwnerReviewTask(task, viewerUserId))) {
+      await ctx.reply(ru.reassign.forbidden);
+      return;
+    }
+    const assignee = await deps.workspaceMemberService.findActiveMember(task.workspaceId, newAssigneeId);
+    if (!assignee) {
+      await ctx.reply(ru.reassign.invalidAssignee);
+      return;
+    }
+    const nonce = createActionNonce();
+    await updateOrReply(
+      ctx,
+      ru.reassign.confirmPrompt(shortenText(task.sourceText, 40), renderMemberDisplayName(assignee)),
+      Markup.inlineKeyboard([
+        [Markup.button.callback(ru.buttons.confirm, `task_reassign:confirm:${taskId}:${newAssigneeId}:${nonce}`)],
+        [Markup.button.callback(ru.buttons.cancel, `task_reassign:cancel:${taskId}`)]
+      ]).reply_markup
+    );
+  });
+
+  bot.action(/^task_reassign:confirm:([^:]+):([^:]+):([^:]+)$/, async (ctx) => {
+    const taskId = ctx.match[1];
+    const newAssigneeId = ctx.match[2];
+    const nonce = ctx.match[3];
+    await ctx.answerCbQuery();
+    const viewerUserId = String(ctx.from.id);
+    const result = await deps.taskService.reassignTask({
+      taskId,
+      actorUserId: viewerUserId,
+      newAssigneeId,
+      nonce
+    });
+    if (result.status === "NOT_FOUND") {
+      await ctx.reply(ru.reassign.taskNotFound);
+      return;
+    }
+    if (result.status === "FORBIDDEN") {
+      await ctx.reply(ru.reassign.forbidden);
+      return;
+    }
+    if (result.status === "INVALID_ASSIGNEE") {
+      await ctx.reply(ru.reassign.invalidAssignee);
+      return;
+    }
+    if (result.status === "TASK_CLOSED") {
+      await ctx.reply(ru.reassign.taskClosed);
+      return;
+    }
+    await replyTaskCardWithActions(ctx, result.task, viewerUserId);
+    if (!result.changed) {
+      await ctx.reply(ru.reassign.noChanges);
+      return;
+    }
+    if (result.task.workspaceId) {
+      const assignee = await deps.workspaceMemberService.findMember(
+        result.task.workspaceId,
+        result.task.assigneeUserId
+      );
+      const assigneeName = assignee ? renderMemberDisplayName(assignee) : `id:${result.task.assigneeUserId}`;
+      await ctx.reply(ru.reassign.success(assigneeName));
+      return;
+    }
+    await ctx.reply(ru.reassign.success(`id:${result.task.assigneeUserId}`));
+  });
+
+  bot.action(/^task_reassign:cancel:([^:]+)$/, async (ctx) => {
+    const taskId = ctx.match[1];
+    await ctx.answerCbQuery(ru.confirm.canceled);
+    const viewerUserId = String(ctx.from.id);
+    const task = await deps.taskService.getTaskForViewer(taskId, viewerUserId);
+    if (!task) {
+      await ctx.reply(ru.reassign.taskNotFound);
       return;
     }
     await replyTaskCardWithActions(ctx, task, viewerUserId);
