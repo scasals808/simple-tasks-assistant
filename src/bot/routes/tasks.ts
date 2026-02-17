@@ -117,6 +117,11 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     return workspace?.ownerUserId === viewerUserId;
   }
 
+  async function isWorkspaceOwner(workspaceId: string, userId: string): Promise<boolean> {
+    const workspace = await deps.workspaceService.findWorkspaceById(workspaceId);
+    return workspace?.ownerUserId === userId;
+  }
+
   async function replyTaskCardWithActions(
     ctx: {
       editMessageText(text: string, extra?: { reply_markup?: unknown }): Promise<unknown>;
@@ -399,7 +404,42 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     }
   }
 
-  bot.hears(["📥 Мне назначено", "✍️ Я создал", "➕ Новая задача", "ℹ️ Помощь", ru.menu.onReview], async (ctx) => {
+  async function handleMembersList(ctx: {
+    from: { id: number };
+    reply(text: string, extra?: unknown): Promise<unknown>;
+  }): Promise<void> {
+    const userId = String(ctx.from.id);
+    const workspaceId = await deps.workspaceMemberService.findLatestWorkspaceIdForUser(userId);
+    if (!workspaceId) {
+      await ctx.reply(ru.taskList.joinTeamFirst);
+      return;
+    }
+    if (!(await isWorkspaceOwner(workspaceId, userId))) {
+      await ctx.reply(ru.members.onlyOwner);
+      return;
+    }
+    const members = await deps.workspaceMemberService.listWorkspaceMembers(workspaceId);
+    if (members.length === 0) {
+      await ctx.reply(ru.members.empty);
+      return;
+    }
+    const lines = members.map((member, index) => {
+      const display = renderMemberDisplayName(member);
+      const username = member.tgUsername && !display.startsWith("@") ? ` (@${member.tgUsername})` : "";
+      return `${index + 1}) ${display}${username}`;
+    });
+    const buttons = members.map((member) => [
+      Markup.button.callback(
+        `${ru.buttons.membersRemove}: ${shortenText(renderMemberDisplayName(member), 24)}`,
+        `member:remove:ask:${member.userId}`
+      )
+    ]);
+    await ctx.reply(`${ru.members.header}\n\n${lines.join("\n")}`, Markup.inlineKeyboard(buttons));
+  }
+
+  bot.hears(
+    ["📥 Мне назначено", "✍️ Я создал", "➕ Новая задача", "ℹ️ Помощь", ru.menu.onReview, ru.menu.members],
+    async (ctx) => {
     if (ctx.chat.type !== "private") {
       return;
     }
@@ -443,6 +483,15 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
       );
       return;
     }
+    if (text === ru.menu.members) {
+      await handleMembersList(
+        ctx as unknown as {
+          from: { id: number };
+          reply(text: string, extra?: unknown): Promise<unknown>;
+        }
+      );
+      return;
+    }
     await ctx.reply(ru.common.notImplemented);
   });
 
@@ -466,6 +515,90 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
         reply(text: string): Promise<unknown>;
       },
       "assigned"
+    );
+  });
+
+  bot.action(/^members:list$/, async (ctx) => {
+    await ctx.answerCbQuery();
+    await handleMembersList(
+      ctx as unknown as {
+        from: { id: number };
+        reply(text: string, extra?: unknown): Promise<unknown>;
+      }
+    );
+  });
+
+  bot.action(/^member:remove:ask:([^:]+)$/, async (ctx) => {
+    const memberUserId = ctx.match[1];
+    await ctx.answerCbQuery();
+    const actorUserId = String(ctx.from.id);
+    const workspaceId = await deps.workspaceMemberService.findLatestWorkspaceIdForUser(actorUserId);
+    if (!workspaceId || !(await isWorkspaceOwner(workspaceId, actorUserId))) {
+      await ctx.reply(ru.members.onlyOwner);
+      return;
+    }
+    const member = await deps.workspaceMemberService.findMember(workspaceId, memberUserId);
+    if (!member || member.status !== "ACTIVE") {
+      await ctx.reply(ru.members.notFound);
+      return;
+    }
+    const nonce = createActionNonce();
+    await updateOrReply(
+      ctx,
+      ru.members.removeAsk(renderMemberDisplayName(member)),
+      Markup.inlineKeyboard([
+        [
+          Markup.button.callback(
+            ru.buttons.membersRemoveConfirm,
+            `member:remove:confirm:${memberUserId}:${nonce}`
+          )
+        ],
+        [Markup.button.callback(ru.buttons.membersRemoveCancel, `member:remove:cancel:${memberUserId}`)]
+      ]).reply_markup
+    );
+  });
+
+  bot.action(/^member:remove:confirm:([^:]+):([^:]+)$/, async (ctx) => {
+    const memberUserId = ctx.match[1];
+    await ctx.answerCbQuery();
+    const actorUserId = String(ctx.from.id);
+    const workspaceId = await deps.workspaceMemberService.findLatestWorkspaceIdForUser(actorUserId);
+    if (!workspaceId) {
+      await ctx.reply(ru.taskList.joinTeamFirst);
+      return;
+    }
+    const before = await deps.workspaceMemberService.findMember(workspaceId, memberUserId);
+    const result = await deps.workspaceMemberService.removeMember({
+      workspaceId,
+      actorUserId,
+      memberUserId
+    });
+    if (result.status === "FORBIDDEN") {
+      await ctx.reply(ru.members.onlyOwner);
+      return;
+    }
+    if (result.status === "NOT_FOUND") {
+      await ctx.reply(ru.members.notFound);
+      return;
+    }
+    if (result.status === "CANNOT_REMOVE_OWNER") {
+      await ctx.reply(ru.members.cannotRemoveOwner);
+      return;
+    }
+    if (result.status === "ALREADY_REMOVED") {
+      await ctx.reply(ru.members.alreadyRemoved);
+      return;
+    }
+    const removedName = before ? renderMemberDisplayName(before) : `id:${memberUserId}`;
+    await ctx.reply(ru.members.removed(removedName));
+  });
+
+  bot.action(/^member:remove:cancel:([^:]+)$/, async (ctx) => {
+    await ctx.answerCbQuery(ru.confirm.canceled);
+    await updateOrReply(
+      ctx,
+      ru.members.header,
+      Markup.inlineKeyboard([[Markup.button.callback(ru.menu.members, "members:list")]]).reply_markup
     );
   });
 

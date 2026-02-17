@@ -59,10 +59,12 @@ export function registerInviteRoutes(bot: Telegraf, deps: BotDeps): void {
     const route = selectStartRoute(parsed);
     if (route === "join" && parsed.type === "join") {
       await handleStartJoin(ctx, deps.workspaceInviteService, parsed.token);
+      const canSeeOwnerButtons = await canSeeOnReviewButton(ctx.from?.id);
       const rowsAfterJoin = buildMainMenuRows(
         ctx.from?.id,
         deps.adminUserIds,
-        await canSeeOnReviewButton(ctx.from?.id)
+        canSeeOwnerButtons,
+        canSeeOwnerButtons
       );
       await ctx.reply("Меню", Markup.keyboard(rowsAfterJoin).resize());
       return;
@@ -106,10 +108,12 @@ export function registerInviteRoutes(bot: Telegraf, deps: BotDeps): void {
       tgUsername: ctx.from.username ?? null
     });
 
+    const canSeeOwnerButtons = await canSeeOnReviewButton(ctx.from?.id);
     const rows = buildMainMenuRows(
       ctx.from?.id,
       deps.adminUserIds,
-      await canSeeOnReviewButton(ctx.from?.id)
+      canSeeOwnerButtons,
+      canSeeOwnerButtons
     );
     const count = rows.reduce((acc, row) => acc + row.length, 0);
     logMenuRender({

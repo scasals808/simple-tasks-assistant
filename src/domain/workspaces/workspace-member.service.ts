@@ -86,6 +86,39 @@ export class WorkspaceMemberService {
     return this.workspaceMemberRepo.setMemberStatus(workspaceId, userId, status);
   }
 
+  async removeMember(input: {
+    workspaceId: string;
+    actorUserId: string;
+    memberUserId: string;
+  }): Promise<
+    | { status: "FORBIDDEN" }
+    | { status: "NOT_FOUND" }
+    | { status: "CANNOT_REMOVE_OWNER" }
+    | { status: "ALREADY_REMOVED" }
+    | { status: "REMOVED"; member: WorkspaceMember }
+  > {
+    const actor = await this.workspaceMemberRepo.findActiveMember(input.workspaceId, input.actorUserId);
+    if (!actor || actor.role !== "OWNER") {
+      return { status: "FORBIDDEN" };
+    }
+    const member = await this.workspaceMemberRepo.findMember(input.workspaceId, input.memberUserId);
+    if (!member) {
+      return { status: "NOT_FOUND" };
+    }
+    if (member.role === "OWNER") {
+      return { status: "CANNOT_REMOVE_OWNER" };
+    }
+    if (member.status === "REMOVED") {
+      return { status: "ALREADY_REMOVED" };
+    }
+    const removed = await this.workspaceMemberRepo.setMemberStatus(
+      input.workspaceId,
+      input.memberUserId,
+      "REMOVED"
+    );
+    return { status: "REMOVED", member: removed };
+  }
+
   async findLatestWorkspaceIdForUser(userId: string): Promise<string | null> {
     return this.workspaceMemberRepo.findLatestWorkspaceIdByUser(userId);
   }
