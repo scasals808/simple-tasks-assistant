@@ -71,4 +71,12 @@ export class WorkspaceMemberRepoPrisma implements WorkspaceMemberRepo {
     });
     return rows.map(mapWorkspaceMember);
   }
+
+  async findLatestWorkspaceIdByUser(userId: string): Promise<string | null> {
+    const row = await prisma.workspaceMember.findFirst({
+      where: { userId },
+      orderBy: [{ lastSeenAt: "desc" }, { joinedAt: "desc" }]
+    });
+    return row?.workspaceId ?? null;
+  }
 }

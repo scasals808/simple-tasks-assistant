@@ -15,6 +15,7 @@ export type TaskDraft = {
   status: "PENDING" | "FINAL";
   step: DraftStep;
   createdTaskId: string | null;
+  workspaceId: string | null;
   sourceChatId: string;
   sourceMessageId: string;
   sourceText: string;
@@ -35,6 +36,7 @@ export interface TaskRepo {
   create(task: Task): Promise<Task>;
   createDraft(input: {
     token: string;
+    workspaceId?: string | null;
     sourceChatId: string;
     sourceMessageId: string;
     sourceText: string;
@@ -44,6 +46,8 @@ export interface TaskRepo {
   findDraftByToken(token: string): Promise<TaskDraft | null>;
   findTaskBySource(sourceChatId: string, sourceMessageId: string): Promise<Task | null>;
   findByAssigneeUserId(assigneeUserId: string): Promise<Task[]>;
+  listAssignedTasks(workspaceId: string, viewerUserId: string, limit: number): Promise<Task[]>;
+  listCreatedTasks(workspaceId: string, viewerUserId: string, limit: number): Promise<Task[]>;
   findAwaitingDeadlineDraftByCreator(creatorUserId: string): Promise<TaskDraft | null>;
   updateDraft(
     draftId: string,

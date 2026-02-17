@@ -46,7 +46,8 @@ describe("WorkspaceInviteService.acceptInvite", () => {
         lastSeenAt: now
       })),
       findMember: vi.fn(async () => null),
-      listByWorkspace: vi.fn(async () => [])
+      listByWorkspace: vi.fn(async () => []),
+      findLatestWorkspaceIdByUser: vi.fn(async () => null)
     };
     const service = new WorkspaceInviteService(
       { now: () => now },
@@ -84,7 +85,8 @@ describe("WorkspaceInviteService.acceptInvite", () => {
         lastSeenAt: now
       })),
       findMember: vi.fn(async () => null),
-      listByWorkspace: vi.fn(async () => [])
+      listByWorkspace: vi.fn(async () => []),
+      findLatestWorkspaceIdByUser: vi.fn(async () => null)
     };
     const service = new WorkspaceInviteService(
       { now: () => now },
@@ -135,7 +137,8 @@ describe("WorkspaceInviteService.acceptInvite", () => {
     const workspaceMemberRepo: WorkspaceMemberRepo = {
       upsertMember,
       findMember: vi.fn(async () => null),
-      listByWorkspace: vi.fn(async () => [])
+      listByWorkspace: vi.fn(async () => []),
+      findLatestWorkspaceIdByUser: vi.fn(async () => null)
     };
     const service = new WorkspaceInviteService(
       { now: () => now },
@@ -203,7 +206,8 @@ describe("WorkspaceInviteService.acceptInvite", () => {
     const workspaceMemberRepo: WorkspaceMemberRepo = {
       upsertMember,
       findMember: vi.fn(async () => null),
-      listByWorkspace: vi.fn(async () => [])
+      listByWorkspace: vi.fn(async () => []),
+      findLatestWorkspaceIdByUser: vi.fn(async () => null)
     };
     const clock = {
       now: vi.fn().mockReturnValueOnce(firstSeen).mockReturnValueOnce(secondSeen)
@@ -266,7 +270,8 @@ describe("WorkspaceInviteService.acceptInvite", () => {
         joinedAt: now,
         lastSeenAt: now
       })),
-      listByWorkspace: vi.fn(async () => [])
+      listByWorkspace: vi.fn(async () => []),
+      findLatestWorkspaceIdByUser: vi.fn(async () => null)
     };
     const service = new WorkspaceInviteService(
       { now: () => now },

@@ -18,4 +18,5 @@ export interface WorkspaceMemberRepo {
   ): Promise<WorkspaceMember>;
   findMember(workspaceId: string, userId: string): Promise<WorkspaceMember | null>;
   listByWorkspace(workspaceId: string): Promise<WorkspaceMember[]>;
+  findLatestWorkspaceIdByUser(userId: string): Promise<string | null>;
 }

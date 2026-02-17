@@ -194,12 +194,67 @@ function logMenuRender(input: {
   });
 }
 
+function formatDueDate(value: Date | null): string {
+  if (!value) {
+    return "-";
+  }
+  return value.toISOString().slice(0, 10);
+}
+
+function shortenText(value: string, max = 24): string {
+  const text = value.trim().replace(/\s+/g, " ");
+  if (!text) {
+    return "-";
+  }
+  if (text.length <= max) {
+    return text;
+  }
+  return `${text.slice(0, max - 1)}…`;
+}
+
+function renderTaskListHeader(kind: "assigned" | "created", count: number): string {
+  return kind === "assigned" ? `📥 Мне назначено (${count})` : `✍️ Я создал (${count})`;
+}
+
+function renderTaskLine(task: {
+  id: string;
+  priority: string;
+  deadlineAt: Date | null;
+  sourceText: string;
+  status: string;
+}): string {
+  return `[${task.priority}] due ${formatDueDate(task.deadlineAt)} ${shortenText(task.sourceText)} ${task.status} (${task.id})`;
+}
+
+function logTaskList(input: {
+  handler: "list_assigned_tasks" | "list_created_tasks";
+  userId: string;
+  workspaceId: string | null;
+  count: number;
+  queryMs: number;
+  errorCode?: string | null;
+}): void {
+  const payload = {
+    handler: input.handler,
+    user_id: input.userId,
+    workspaceId: input.workspaceId,
+    count: input.count,
+    query_ms: input.queryMs,
+    error_code: input.errorCode ?? null
+  };
+  if (input.errorCode) {
+    console.warn("[bot.task_list]", payload);
+    return;
+  }
+  console.log("[bot.task_list]", payload);
+}
+
 export function buildMainMenuRows(
   userId: number | undefined,
   adminUserIds: Set<string>
 ): string[][] {
   const isAdminUser = typeof userId === "number" && isAdmin(userId, adminUserIds);
-  const rows: string[][] = [["📌 Мои задачи", "➕ Создать задачу"], ["ℹ️ Помощь"]];
+  const rows: string[][] = [["📥 Мне назначено", "✍️ Я создал"], ["➕ Создать задачу", "ℹ️ Помощь"]];
   if (isAdminUser) {
     rows.push(["Admin"]);
   }
@@ -257,6 +312,82 @@ export function createBot(
 ): Telegraf {
   const bot = new Telegraf(token);
 
+  async function handleTaskList(
+    ctx: {
+      from: { id: number };
+      reply(text: string): Promise<unknown>;
+    },
+    kind: "assigned" | "created"
+  ): Promise<void> {
+    const userId = String(ctx.from.id);
+    const startedAt = Date.now();
+    try {
+      const workspaceId = await workspaceMemberService.findLatestWorkspaceIdForUser(userId);
+      if (!workspaceId) {
+        logTaskList({
+          handler: kind === "assigned" ? "list_assigned_tasks" : "list_created_tasks",
+          userId,
+          workspaceId: null,
+          count: 0,
+          queryMs: Date.now() - startedAt,
+          errorCode: "NOT_IN_WORKSPACE"
+        });
+        await ctx.reply("Сначала вступите в команду по invite-ссылке.");
+        return;
+      }
+
+      const result =
+        kind === "assigned"
+          ? await taskService.listAssignedTasks({ workspaceId, viewerUserId: userId, limit: 20 })
+          : await taskService.listCreatedTasks({ workspaceId, viewerUserId: userId, limit: 20 });
+      if (result.status === "NOT_IN_WORKSPACE") {
+        logTaskList({
+          handler: kind === "assigned" ? "list_assigned_tasks" : "list_created_tasks",
+          userId,
+          workspaceId,
+          count: 0,
+          queryMs: Date.now() - startedAt,
+          errorCode: "NOT_IN_WORKSPACE"
+        });
+        await ctx.reply("Сначала вступите в команду по invite-ссылке.");
+        return;
+      }
+
+      const header = renderTaskListHeader(kind, result.tasks.length);
+      if (result.tasks.length === 0) {
+        logTaskList({
+          handler: kind === "assigned" ? "list_assigned_tasks" : "list_created_tasks",
+          userId,
+          workspaceId,
+          count: 0,
+          queryMs: Date.now() - startedAt
+        });
+        await ctx.reply(`${header}\nПока пусто.`);
+        return;
+      }
+
+      const body = result.tasks.map((task) => renderTaskLine(task)).join("\n");
+      logTaskList({
+        handler: kind === "assigned" ? "list_assigned_tasks" : "list_created_tasks",
+        userId,
+        workspaceId,
+        count: result.tasks.length,
+        queryMs: Date.now() - startedAt
+      });
+      await ctx.reply(`${header}\n${body}`);
+    } catch {
+      logTaskList({
+        handler: kind === "assigned" ? "list_assigned_tasks" : "list_created_tasks",
+        userId,
+        workspaceId: null,
+        count: 0,
+        queryMs: Date.now() - startedAt,
+        errorCode: "LIST_FAILED"
+      });
+      await ctx.reply("Не удалось загрузить задачи.");
+    }
+  }
+
   bot.start(async (ctx) => {
     if (ctx.chat.type !== "private") {
       return;
@@ -310,25 +441,58 @@ export function createBot(
     );
   });
 
-  bot.hears(["📌 Мои задачи", "➕ Создать задачу", "ℹ️ Помощь"], async (ctx) => {
+  bot.hears(["📥 Мне назначено", "✍️ Я создал", "➕ Создать задачу", "ℹ️ Помощь"], async (ctx) => {
     if (ctx.chat.type !== "private") {
       return;
     }
     const text = (ctx.message as { text?: string }).text ?? "";
-    if (text === "📌 Мои задачи") {
-      const tasks = await taskService.getMyTasks(String(ctx.from.id));
-      if (tasks.length === 0) {
-        await ctx.reply("No tasks");
-        return;
-      }
-      const preview = tasks
-        .slice(0, 10)
-        .map((task) => `#${task.id} ${task.priority} ${task.status}`)
-        .join("\n");
-      await ctx.reply(preview);
+    if (text === "📥 Мне назначено") {
+      await handleTaskList(
+        ctx as unknown as {
+          from: { id: number };
+          reply(text: string): Promise<unknown>;
+        },
+        "assigned"
+      );
+      return;
+    }
+    if (text === "✍️ Я создал") {
+      await handleTaskList(
+        ctx as unknown as {
+          from: { id: number };
+          reply(text: string): Promise<unknown>;
+        },
+        "created"
+      );
       return;
     }
     await ctx.reply("Not implemented yet");
+  });
+
+  bot.command("assigned", async (ctx) => {
+    if (ctx.chat.type !== "private") {
+      return;
+    }
+    await handleTaskList(
+      ctx as unknown as {
+        from: { id: number };
+        reply(text: string): Promise<unknown>;
+      },
+      "assigned"
+    );
+  });
+
+  bot.command("created", async (ctx) => {
+    if (ctx.chat.type !== "private") {
+      return;
+    }
+    await handleTaskList(
+      ctx as unknown as {
+        from: { id: number };
+        reply(text: string): Promise<unknown>;
+      },
+      "created"
+    );
   });
 
   bot.command("admin", async (ctx) => {
@@ -589,6 +753,7 @@ export function createBot(
     const tokenForTask = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
     await taskService.createDraft({
       token: tokenForTask,
+      workspaceId: (await workspaceService.findWorkspaceByChatId(String(message.chat.id)))?.id ?? null,
       sourceChatId: String(message.chat.id),
       sourceMessageId: String(message.reply_to_message.message_id),
       sourceText: message.reply_to_message.text ?? message.reply_to_message.caption ?? "",

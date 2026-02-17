@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { TaskRepo } from "../src/domain/ports/task.repo.port.js";
+import type { WorkspaceMemberRepo } from "../src/domain/ports/workspace-member.repo.port.js";
 import type { Task } from "../src/domain/tasks/task.types.js";
 import { TaskService } from "../src/domain/tasks/task.service.js";
 
@@ -28,6 +29,7 @@ function makeDraft() {
     status: "PENDING" as const,
     step: "CHOOSE_ASSIGNEE" as const,
     createdTaskId: null,
+    workspaceId: "ws-1",
     sourceChatId: "chat-1",
     sourceMessageId: "msg-1",
     sourceText: "text",
@@ -44,18 +46,28 @@ function makeDraft() {
 describe("TaskService wizard flow", () => {
   it("starts wizard when no task exists", async () => {
     const draft = makeDraft();
+    const workspaceMemberRepo: WorkspaceMemberRepo = {
+      upsertMember: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      findMember: vi.fn(async () => null),
+      listByWorkspace: vi.fn(async () => []),
+      findLatestWorkspaceIdByUser: vi.fn(async () => null)
+    };
     const repo: TaskRepo = {
       create: vi.fn(async (task) => task),
       createDraft: vi.fn(async () => draft),
       findDraftByToken: vi.fn(async () => draft),
       findTaskBySource: vi.fn(async () => null),
       findByAssigneeUserId: vi.fn(async () => []),
+      listAssignedTasks: vi.fn(async () => []),
+      listCreatedTasks: vi.fn(async () => []),
       findAwaitingDeadlineDraftByCreator: vi.fn(async () => null),
       updateDraft: vi.fn(async (_id, patch) => ({ ...draft, ...patch })),
       createFromDraft: vi.fn(async () => ({ status: "CREATED", task: makeTask("task-1") })),
       markDraftFinal: vi.fn(async () => undefined)
     };
-    const service = new TaskService({ now: () => new Date() }, repo);
+    const service = new TaskService({ now: () => new Date() }, repo, workspaceMemberRepo);
 
     const result = await service.startDraftWizard("t-1", "u-1");
     expect(result.status).toBe("STARTED");
@@ -64,18 +76,28 @@ describe("TaskService wizard flow", () => {
   it("returns ALREADY_EXISTS on wizard start when task exists", async () => {
     const draft = makeDraft();
     const existing = makeTask("task-existing");
+    const workspaceMemberRepo: WorkspaceMemberRepo = {
+      upsertMember: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      findMember: vi.fn(async () => null),
+      listByWorkspace: vi.fn(async () => []),
+      findLatestWorkspaceIdByUser: vi.fn(async () => null)
+    };
     const repo: TaskRepo = {
       create: vi.fn(async (task) => task),
       createDraft: vi.fn(async () => draft),
       findDraftByToken: vi.fn(async () => draft),
       findTaskBySource: vi.fn(async () => existing),
       findByAssigneeUserId: vi.fn(async () => []),
+      listAssignedTasks: vi.fn(async () => []),
+      listCreatedTasks: vi.fn(async () => []),
       findAwaitingDeadlineDraftByCreator: vi.fn(async () => null),
       updateDraft: vi.fn(async (_id, patch) => ({ ...draft, ...patch })),
       createFromDraft: vi.fn(async () => ({ status: "CREATED", task: makeTask("task-1") })),
       markDraftFinal: vi.fn(async () => undefined)
     };
-    const service = new TaskService({ now: () => new Date() }, repo);
+    const service = new TaskService({ now: () => new Date() }, repo, workspaceMemberRepo);
 
     const result = await service.startDraftWizard("t-1", "u-1");
     expect(result).toEqual({ status: "ALREADY_EXISTS", task: existing });
@@ -83,6 +105,14 @@ describe("TaskService wizard flow", () => {
 
   it("setAssignee transitions to CHOOSE_PRIORITY", async () => {
     const draft = makeDraft();
+    const workspaceMemberRepo: WorkspaceMemberRepo = {
+      upsertMember: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      findMember: vi.fn(async () => null),
+      listByWorkspace: vi.fn(async () => []),
+      findLatestWorkspaceIdByUser: vi.fn(async () => null)
+    };
     const updateDraft = vi.fn(async (_id, patch) => ({ ...draft, ...patch }));
     const repo: TaskRepo = {
       create: vi.fn(async (task) => task),
@@ -90,12 +120,14 @@ describe("TaskService wizard flow", () => {
       findDraftByToken: vi.fn(async () => draft),
       findTaskBySource: vi.fn(async () => null),
       findByAssigneeUserId: vi.fn(async () => []),
+      listAssignedTasks: vi.fn(async () => []),
+      listCreatedTasks: vi.fn(async () => []),
       findAwaitingDeadlineDraftByCreator: vi.fn(async () => null),
       updateDraft,
       createFromDraft: vi.fn(async () => ({ status: "CREATED", task: makeTask("task-1") })),
       markDraftFinal: vi.fn(async () => undefined)
     };
-    const service = new TaskService({ now: () => new Date() }, repo);
+    const service = new TaskService({ now: () => new Date() }, repo, workspaceMemberRepo);
 
     await service.setDraftAssignee("t-1", "u-1", "maria");
     expect(updateDraft).toHaveBeenCalledWith("d-1", {
@@ -106,6 +138,14 @@ describe("TaskService wizard flow", () => {
 
   it("setPriority transitions to CHOOSE_DEADLINE", async () => {
     const draft = { ...makeDraft(), assigneeId: "maria" };
+    const workspaceMemberRepo: WorkspaceMemberRepo = {
+      upsertMember: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      findMember: vi.fn(async () => null),
+      listByWorkspace: vi.fn(async () => []),
+      findLatestWorkspaceIdByUser: vi.fn(async () => null)
+    };
     const updateDraft = vi.fn(async (_id, patch) => ({ ...draft, ...patch }));
     const repo: TaskRepo = {
       create: vi.fn(async (task) => task),
@@ -113,12 +153,14 @@ describe("TaskService wizard flow", () => {
       findDraftByToken: vi.fn(async () => draft),
       findTaskBySource: vi.fn(async () => null),
       findByAssigneeUserId: vi.fn(async () => []),
+      listAssignedTasks: vi.fn(async () => []),
+      listCreatedTasks: vi.fn(async () => []),
       findAwaitingDeadlineDraftByCreator: vi.fn(async () => null),
       updateDraft,
       createFromDraft: vi.fn(async () => ({ status: "CREATED", task: makeTask("task-1") })),
       markDraftFinal: vi.fn(async () => undefined)
     };
-    const service = new TaskService({ now: () => new Date() }, repo);
+    const service = new TaskService({ now: () => new Date() }, repo, workspaceMemberRepo);
 
     await service.setDraftPriority("t-1", "u-1", "P1");
     expect(updateDraft).toHaveBeenCalledWith("d-1", {
@@ -129,6 +171,14 @@ describe("TaskService wizard flow", () => {
 
   it("applies deadline preset and manual date validation", async () => {
     const draft = { ...makeDraft(), assigneeId: "maria", priority: "P1" as const };
+    const workspaceMemberRepo: WorkspaceMemberRepo = {
+      upsertMember: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      findMember: vi.fn(async () => null),
+      listByWorkspace: vi.fn(async () => []),
+      findLatestWorkspaceIdByUser: vi.fn(async () => null)
+    };
     const updateDraft = vi.fn(async (_id, patch) => ({ ...draft, ...patch }));
     const repo: TaskRepo = {
       create: vi.fn(async (task) => task),
@@ -136,12 +186,18 @@ describe("TaskService wizard flow", () => {
       findDraftByToken: vi.fn(async () => draft),
       findTaskBySource: vi.fn(async () => null),
       findByAssigneeUserId: vi.fn(async () => []),
+      listAssignedTasks: vi.fn(async () => []),
+      listCreatedTasks: vi.fn(async () => []),
       findAwaitingDeadlineDraftByCreator: vi.fn(async () => draft),
       updateDraft,
       createFromDraft: vi.fn(async () => ({ status: "CREATED", task: makeTask("task-1") })),
       markDraftFinal: vi.fn(async () => undefined)
     };
-    const service = new TaskService({ now: () => new Date("2026-02-16T10:00:00.000Z") }, repo);
+    const service = new TaskService(
+      { now: () => new Date("2026-02-16T10:00:00.000Z") },
+      repo,
+      workspaceMemberRepo
+    );
 
     const today = await service.setDraftDeadlineChoice("t-1", "u-1", "today");
     expect(today.status).toBe("UPDATED");
@@ -160,18 +216,28 @@ describe("TaskService wizard flow", () => {
     };
     const createFromDraft = vi.fn(async () => ({ status: "CREATED" as const, task: makeTask("task-1") }));
     const markDraftFinal = vi.fn(async () => undefined);
+    const workspaceMemberRepo: WorkspaceMemberRepo = {
+      upsertMember: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      findMember: vi.fn(async () => null),
+      listByWorkspace: vi.fn(async () => []),
+      findLatestWorkspaceIdByUser: vi.fn(async () => null)
+    };
     const repo: TaskRepo = {
       create: vi.fn(async (task) => task),
       createDraft: vi.fn(async () => draft),
       findDraftByToken: vi.fn(async () => draft),
       findTaskBySource: vi.fn(async () => null),
       findByAssigneeUserId: vi.fn(async () => []),
+      listAssignedTasks: vi.fn(async () => []),
+      listCreatedTasks: vi.fn(async () => []),
       findAwaitingDeadlineDraftByCreator: vi.fn(async () => null),
       updateDraft: vi.fn(async (_id, patch) => ({ ...draft, ...patch })),
       createFromDraft,
       markDraftFinal
     };
-    const service = new TaskService({ now: () => new Date() }, repo);
+    const service = new TaskService({ now: () => new Date() }, repo, workspaceMemberRepo);
 
     const result = await service.finalizeDraft("t-1", "u-1");
     expect(result?.status).toBe("CREATED");
@@ -188,18 +254,28 @@ describe("TaskService wizard flow", () => {
       priority: "P1" as const
     };
     const existing = makeTask("task-existing");
+    const workspaceMemberRepo: WorkspaceMemberRepo = {
+      upsertMember: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      findMember: vi.fn(async () => null),
+      listByWorkspace: vi.fn(async () => []),
+      findLatestWorkspaceIdByUser: vi.fn(async () => null)
+    };
     const repo: TaskRepo = {
       create: vi.fn(async (task) => task),
       createDraft: vi.fn(async () => draft),
       findDraftByToken: vi.fn(async () => draft),
       findTaskBySource: vi.fn(async () => existing),
       findByAssigneeUserId: vi.fn(async () => []),
+      listAssignedTasks: vi.fn(async () => []),
+      listCreatedTasks: vi.fn(async () => []),
       findAwaitingDeadlineDraftByCreator: vi.fn(async () => null),
       updateDraft: vi.fn(async (_id, patch) => ({ ...draft, ...patch })),
       createFromDraft: vi.fn(async () => ({ status: "CREATED", task: makeTask("task-1") })),
       markDraftFinal: vi.fn(async () => undefined)
     };
-    const service = new TaskService({ now: () => new Date() }, repo);
+    const service = new TaskService({ now: () => new Date() }, repo, workspaceMemberRepo);
 
     const result = await service.finalizeDraft("t-1", "u-1");
     expect(result).toEqual({ status: "ALREADY_EXISTS", task: existing });

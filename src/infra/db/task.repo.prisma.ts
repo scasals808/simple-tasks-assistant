@@ -46,6 +46,7 @@ function mapDraft(row: {
   status: string;
   step: string;
   createdTaskId: string | null;
+  workspaceId: string | null;
   sourceChatId: string;
   sourceMessageId: string;
   sourceText: string;
@@ -63,6 +64,7 @@ function mapDraft(row: {
     status: row.status as TaskDraft["status"],
     step: row.step as TaskDraft["step"],
     createdTaskId: row.createdTaskId,
+    workspaceId: row.workspaceId,
     sourceChatId: row.sourceChatId,
     sourceMessageId: row.sourceMessageId,
     sourceText: row.sourceText,
@@ -130,6 +132,7 @@ export class PrismaTaskRepo implements TaskRepo {
 
   async createDraft(input: {
     token: string;
+    workspaceId?: string | null;
     sourceChatId: string;
     sourceMessageId: string;
     sourceText: string;
@@ -141,6 +144,7 @@ export class PrismaTaskRepo implements TaskRepo {
         token: input.token,
         status: "PENDING",
         step: "CHOOSE_ASSIGNEE",
+        workspaceId: input.workspaceId ?? null,
         sourceChatId: input.sourceChatId,
         sourceMessageId: input.sourceMessageId,
         sourceText: input.sourceText,
@@ -178,6 +182,106 @@ export class PrismaTaskRepo implements TaskRepo {
       where: { assigneeUserId },
       orderBy: { createdAt: "desc" }
     });
+    return rows.map(mapTask);
+  }
+
+  async listAssignedTasks(workspaceId: string, viewerUserId: string, limit: number): Promise<Task[]> {
+    const rows = await prisma.$queryRaw<
+      Array<{
+        id: string;
+        sourceDraftId: string;
+        sourceChatId: string;
+        sourceMessageId: string;
+        sourceText: string;
+        sourceLink: string | null;
+        creatorUserId: string;
+        assigneeUserId: string;
+        priority: string;
+        deadlineAt: Date | null;
+        status: string;
+        createdAt: Date;
+        updatedAt: Date;
+      }>
+    >(Prisma.sql`
+      SELECT
+        t."id",
+        t."sourceDraftId",
+        t."sourceChatId",
+        t."sourceMessageId",
+        t."sourceText",
+        t."sourceLink",
+        t."creatorUserId",
+        t."assigneeUserId",
+        t."priority",
+        t."deadlineAt",
+        t."status",
+        t."createdAt",
+        t."updatedAt"
+      FROM "Task" t
+      WHERE t."workspaceId" = ${workspaceId}
+        AND t."assigneeUserId" = ${viewerUserId}
+      ORDER BY
+        CASE t."priority"
+          WHEN 'P1' THEN 1
+          WHEN 'P2' THEN 2
+          WHEN 'P3' THEN 3
+          ELSE 4
+        END ASC,
+        t."deadlineAt" ASC NULLS LAST,
+        t."createdAt" DESC,
+        t."id" ASC
+      LIMIT ${limit}
+    `);
+    return rows.map(mapTask);
+  }
+
+  async listCreatedTasks(workspaceId: string, viewerUserId: string, limit: number): Promise<Task[]> {
+    const rows = await prisma.$queryRaw<
+      Array<{
+        id: string;
+        sourceDraftId: string;
+        sourceChatId: string;
+        sourceMessageId: string;
+        sourceText: string;
+        sourceLink: string | null;
+        creatorUserId: string;
+        assigneeUserId: string;
+        priority: string;
+        deadlineAt: Date | null;
+        status: string;
+        createdAt: Date;
+        updatedAt: Date;
+      }>
+    >(Prisma.sql`
+      SELECT
+        t."id",
+        t."sourceDraftId",
+        t."sourceChatId",
+        t."sourceMessageId",
+        t."sourceText",
+        t."sourceLink",
+        t."creatorUserId",
+        t."assigneeUserId",
+        t."priority",
+        t."deadlineAt",
+        t."status",
+        t."createdAt",
+        t."updatedAt"
+      FROM "Task" t
+      WHERE t."workspaceId" = ${workspaceId}
+        AND t."creatorUserId" = ${viewerUserId}
+      ORDER BY
+        CASE t."priority"
+          WHEN 'P1' THEN 1
+          WHEN 'P2' THEN 2
+          WHEN 'P3' THEN 3
+          ELSE 4
+        END ASC,
+        t."deadlineAt" ASC NULLS LAST,
+        t."createdAt" DESC,
+        t."id" ASC
+      LIMIT ${limit}
+    `);
     return rows.map(mapTask);
   }
 
@@ -233,6 +337,7 @@ export class PrismaTaskRepo implements TaskRepo {
       const row = await prisma.task.create({
         data: {
           sourceDraftId: draft.id,
+          workspaceId: draft.workspaceId,
           sourceChatId: draft.sourceChatId,
           sourceMessageId: draft.sourceMessageId,
           sourceText: draft.sourceText,

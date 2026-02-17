@@ -4,6 +4,7 @@ import type {
   TaskDraft,
   TaskRepo
 } from "../ports/task.repo.port.js";
+import type { WorkspaceMemberRepo } from "../ports/workspace-member.repo.port.js";
 import type { Task, TaskPriority } from "./task.types.js";
 
 export type CreateTaskInput = {
@@ -67,8 +68,37 @@ function parseYyyyMmDdToDeadline(value: string): Date | null {
 export class TaskService {
   constructor(
     private readonly clock: Clock,
-    private readonly taskRepo: TaskRepo
+    private readonly taskRepo: TaskRepo,
+    private readonly workspaceMemberRepo: WorkspaceMemberRepo
   ) {}
+
+  async listAssignedTasks(input: {
+    workspaceId: string;
+    viewerUserId: string;
+    limit?: number;
+  }): Promise<{ status: "NOT_IN_WORKSPACE" } | { status: "OK"; tasks: Task[] }> {
+    const membership = await this.workspaceMemberRepo.findMember(input.workspaceId, input.viewerUserId);
+    if (!membership) {
+      return { status: "NOT_IN_WORKSPACE" };
+    }
+    const limit = input.limit ?? 20;
+    const tasks = await this.taskRepo.listAssignedTasks(input.workspaceId, input.viewerUserId, limit);
+    return { status: "OK", tasks };
+  }
+
+  async listCreatedTasks(input: {
+    workspaceId: string;
+    viewerUserId: string;
+    limit?: number;
+  }): Promise<{ status: "NOT_IN_WORKSPACE" } | { status: "OK"; tasks: Task[] }> {
+    const membership = await this.workspaceMemberRepo.findMember(input.workspaceId, input.viewerUserId);
+    if (!membership) {
+      return { status: "NOT_IN_WORKSPACE" };
+    }
+    const limit = input.limit ?? 20;
+    const tasks = await this.taskRepo.listCreatedTasks(input.workspaceId, input.viewerUserId, limit);
+    return { status: "OK", tasks };
+  }
 
   async createTask(input: CreateTaskInput): Promise<Task> {
     const now = this.clock.now();
@@ -93,6 +123,7 @@ export class TaskService {
 
   async createDraft(input: {
     token: string;
+    workspaceId?: string | null;
     sourceChatId: string;
     sourceMessageId: string;
     sourceText: string;

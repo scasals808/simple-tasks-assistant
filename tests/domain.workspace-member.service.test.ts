@@ -17,7 +17,8 @@ describe("WorkspaceMemberService", () => {
     const repo: WorkspaceMemberRepo = {
       upsertMember,
       findMember: vi.fn(async () => null),
-      listByWorkspace: vi.fn(async () => [])
+      listByWorkspace: vi.fn(async () => []),
+      findLatestWorkspaceIdByUser: vi.fn(async () => null)
     };
     const service = new WorkspaceMemberService({ now: () => now }, repo);
 
@@ -55,7 +56,8 @@ describe("WorkspaceMemberService", () => {
     const repo: WorkspaceMemberRepo = {
       upsertMember,
       findMember: vi.fn(async () => null),
-      listByWorkspace: vi.fn(async () => [])
+      listByWorkspace: vi.fn(async () => []),
+      findLatestWorkspaceIdByUser: vi.fn(async () => null)
     };
     const clock = {
       now: vi.fn().mockReturnValueOnce(firstSeen).mockReturnValueOnce(secondSeen)

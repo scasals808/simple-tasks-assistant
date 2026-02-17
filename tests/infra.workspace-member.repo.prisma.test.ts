@@ -1,13 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 
 const prismaMocks = vi.hoisted(() => ({
-  workspaceMemberUpsert: vi.fn()
+  workspaceMemberUpsert: vi.fn(),
+  workspaceMemberFindFirst: vi.fn()
 }));
 
 vi.mock("../src/infra/db/prisma.js", () => ({
   prisma: {
     workspaceMember: {
-      upsert: prismaMocks.workspaceMemberUpsert
+      upsert: prismaMocks.workspaceMemberUpsert,
+      findFirst: prismaMocks.workspaceMemberFindFirst
     }
   }
 }));

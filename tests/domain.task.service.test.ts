@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { Clock } from "../src/domain/ports/clock.port.js";
 import type { TaskRepo } from "../src/domain/ports/task.repo.port.js";
+import type { WorkspaceMemberRepo } from "../src/domain/ports/workspace-member.repo.port.js";
 import { TaskService } from "../src/domain/tasks/task.service.js";
 
 describe("TaskService.createTask", () => {
@@ -9,6 +10,14 @@ describe("TaskService.createTask", () => {
     const now = new Date("2026-02-16T00:00:00.000Z");
     const clock: Clock = { now: () => now };
     const create = vi.fn(async (task) => task);
+    const workspaceMemberRepo: WorkspaceMemberRepo = {
+      upsertMember: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      findMember: vi.fn(async () => null),
+      listByWorkspace: vi.fn(async () => []),
+      findLatestWorkspaceIdByUser: vi.fn(async () => null)
+    };
     const repo: TaskRepo = {
       create,
       createDraft: vi.fn(async () => {
@@ -17,6 +26,8 @@ describe("TaskService.createTask", () => {
       findDraftByToken: vi.fn(async () => null),
       findTaskBySource: vi.fn(async () => null),
       findByAssigneeUserId: vi.fn(async () => []),
+      listAssignedTasks: vi.fn(async () => []),
+      listCreatedTasks: vi.fn(async () => []),
       findAwaitingDeadlineDraftByCreator: vi.fn(async () => null),
       updateDraft: vi.fn(async () => {
         throw new Error("unused");
@@ -27,7 +38,7 @@ describe("TaskService.createTask", () => {
       markDraftFinal: vi.fn(async () => undefined)
     };
 
-    const service = new TaskService(clock, repo);
+    const service = new TaskService(clock, repo, workspaceMemberRepo);
 
     const result = await service.createTask({
       id: "task-1",
@@ -77,6 +88,14 @@ describe("TaskService.getMyTasks", () => {
         updatedAt: now
       }
     ]);
+    const workspaceMemberRepo: WorkspaceMemberRepo = {
+      upsertMember: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      findMember: vi.fn(async () => null),
+      listByWorkspace: vi.fn(async () => []),
+      findLatestWorkspaceIdByUser: vi.fn(async () => null)
+    };
     const repo: TaskRepo = {
       create: vi.fn(async (task) => task),
       createDraft: vi.fn(async () => {
@@ -85,6 +104,8 @@ describe("TaskService.getMyTasks", () => {
       findDraftByToken: vi.fn(async () => null),
       findTaskBySource: vi.fn(async () => null),
       findByAssigneeUserId,
+      listAssignedTasks: vi.fn(async () => []),
+      listCreatedTasks: vi.fn(async () => []),
       findAwaitingDeadlineDraftByCreator: vi.fn(async () => null),
       updateDraft: vi.fn(async () => {
         throw new Error("unused");
@@ -95,11 +116,175 @@ describe("TaskService.getMyTasks", () => {
       markDraftFinal: vi.fn(async () => undefined)
     };
 
-    const service = new TaskService(clock, repo);
+    const service = new TaskService(clock, repo, workspaceMemberRepo);
     const tasks = await service.getMyTasks("u-1");
 
     expect(findByAssigneeUserId).toHaveBeenCalledWith("u-1");
     expect(tasks).toHaveLength(1);
     expect(tasks[0]?.assigneeUserId).toBe("u-1");
+  });
+});
+
+describe("TaskService list use-cases", () => {
+  it("assigned filtering delegates to assigned repo with membership gate", async () => {
+    const now = new Date("2026-02-16T00:00:00.000Z");
+    const workspaceMemberRepo: WorkspaceMemberRepo = {
+      upsertMember: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      findMember: vi.fn(async () => ({
+        id: "wm-1",
+        workspaceId: "ws-1",
+        userId: "u-1",
+        role: "MEMBER",
+        joinedAt: now,
+        lastSeenAt: now
+      })),
+      listByWorkspace: vi.fn(async () => []),
+      findLatestWorkspaceIdByUser: vi.fn(async () => null)
+    };
+    const listAssignedTasks = vi.fn(async () => []);
+    const repo: TaskRepo = {
+      create: vi.fn(async (task) => task),
+      createDraft: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      findDraftByToken: vi.fn(async () => null),
+      findTaskBySource: vi.fn(async () => null),
+      findByAssigneeUserId: vi.fn(async () => []),
+      listAssignedTasks,
+      listCreatedTasks: vi.fn(async () => []),
+      findAwaitingDeadlineDraftByCreator: vi.fn(async () => null),
+      updateDraft: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      createFromDraft: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      markDraftFinal: vi.fn(async () => undefined)
+    };
+    const service = new TaskService({ now: () => now }, repo, workspaceMemberRepo);
+
+    const result = await service.listAssignedTasks({
+      workspaceId: "ws-1",
+      viewerUserId: "u-1"
+    });
+    expect(result.status).toBe("OK");
+    expect(listAssignedTasks).toHaveBeenCalledWith("ws-1", "u-1", 20);
+  });
+
+  it("created filtering delegates to created repo with deterministic order", async () => {
+    const now = new Date("2026-02-16T00:00:00.000Z");
+    const workspaceMemberRepo: WorkspaceMemberRepo = {
+      upsertMember: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      findMember: vi.fn(async () => ({
+        id: "wm-1",
+        workspaceId: "ws-1",
+        userId: "u-1",
+        role: "MEMBER",
+        joinedAt: now,
+        lastSeenAt: now
+      })),
+      listByWorkspace: vi.fn(async () => []),
+      findLatestWorkspaceIdByUser: vi.fn(async () => null)
+    };
+    const sorted = [
+      {
+        id: "a",
+        sourceChatId: "c",
+        sourceMessageId: "1",
+        sourceText: "x",
+        sourceLink: null,
+        creatorUserId: "u-1",
+        assigneeUserId: "u-1",
+        priority: "P1" as const,
+        deadlineAt: new Date("2026-02-20T00:00:00.000Z"),
+        status: "ACTIVE" as const,
+        createdAt: now,
+        updatedAt: now
+      },
+      {
+        id: "b",
+        sourceChatId: "c",
+        sourceMessageId: "2",
+        sourceText: "x",
+        sourceLink: null,
+        creatorUserId: "u-1",
+        assigneeUserId: "u-1",
+        priority: "P2" as const,
+        deadlineAt: null,
+        status: "ACTIVE" as const,
+        createdAt: now,
+        updatedAt: now
+      }
+    ];
+    const listCreatedTasks = vi.fn(async () => sorted);
+    const repo: TaskRepo = {
+      create: vi.fn(async (task) => task),
+      createDraft: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      findDraftByToken: vi.fn(async () => null),
+      findTaskBySource: vi.fn(async () => null),
+      findByAssigneeUserId: vi.fn(async () => []),
+      listAssignedTasks: vi.fn(async () => []),
+      listCreatedTasks,
+      findAwaitingDeadlineDraftByCreator: vi.fn(async () => null),
+      updateDraft: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      createFromDraft: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      markDraftFinal: vi.fn(async () => undefined)
+    };
+    const service = new TaskService({ now: () => now }, repo, workspaceMemberRepo);
+
+    const result = await service.listCreatedTasks({
+      workspaceId: "ws-1",
+      viewerUserId: "u-1"
+    });
+    expect(result).toEqual({ status: "OK", tasks: sorted });
+    expect(listCreatedTasks).toHaveBeenCalledWith("ws-1", "u-1", 20);
+  });
+
+  it("returns NOT_IN_WORKSPACE when membership is missing", async () => {
+    const now = new Date("2026-02-16T00:00:00.000Z");
+    const workspaceMemberRepo: WorkspaceMemberRepo = {
+      upsertMember: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      findMember: vi.fn(async () => null),
+      listByWorkspace: vi.fn(async () => []),
+      findLatestWorkspaceIdByUser: vi.fn(async () => null)
+    };
+    const repo: TaskRepo = {
+      create: vi.fn(async (task) => task),
+      createDraft: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      findDraftByToken: vi.fn(async () => null),
+      findTaskBySource: vi.fn(async () => null),
+      findByAssigneeUserId: vi.fn(async () => []),
+      listAssignedTasks: vi.fn(async () => []),
+      listCreatedTasks: vi.fn(async () => []),
+      findAwaitingDeadlineDraftByCreator: vi.fn(async () => null),
+      updateDraft: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      createFromDraft: vi.fn(async () => {
+        throw new Error("unused");
+      }),
+      markDraftFinal: vi.fn(async () => undefined)
+    };
+    const service = new TaskService({ now: () => now }, repo, workspaceMemberRepo);
+
+    const result = await service.listAssignedTasks({
+      workspaceId: "ws-1",
+      viewerUserId: "u-1"
+    });
+    expect(result).toEqual({ status: "NOT_IN_WORKSPACE" });
   });
 });

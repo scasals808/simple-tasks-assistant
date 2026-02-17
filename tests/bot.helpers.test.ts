@@ -45,12 +45,16 @@ describe("bot helpers", () => {
 
   it("builds menu rows without admin button for non-admin", () => {
     const rows = buildMainMenuRows(2, new Set(["1"]));
-    expect(rows).toEqual([["📌 Мои задачи", "➕ Создать задачу"], ["ℹ️ Помощь"]]);
+    expect(rows).toEqual([["📥 Мне назначено", "✍️ Я создал"], ["➕ Создать задачу", "ℹ️ Помощь"]]);
   });
 
   it("builds menu rows with admin button for admin user", () => {
     const rows = buildMainMenuRows(1, new Set(["1"]));
-    expect(rows).toEqual([["📌 Мои задачи", "➕ Создать задачу"], ["ℹ️ Помощь"], ["Admin"]]);
+    expect(rows).toEqual([
+      ["📥 Мне назначено", "✍️ Я создал"],
+      ["➕ Создать задачу", "ℹ️ Помощь"],
+      ["Admin"]
+    ]);
   });
 
 });
