@@ -785,26 +785,46 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
         chatId,
         message.chat.username
       );
-      if (ensured.workspace.status !== "ACTIVE") {
-        await ctx.reply(ru.team.archivedNoAccess);
-        return;
+      let workspace = ensured.workspace;
+      if (workspace.status !== "ACTIVE") {
+        const relink = await deps.workspaceService.relinkArchivedChatToOwnerActiveWorkspace(
+          chatId,
+          userId,
+          message.chat.username
+        );
+
+        if (relink.status === "RELINKED") {
+          console.info("[bind.relinked]", {
+            chatId,
+            fromWorkspaceId: workspace.id,
+            toWorkspaceId: relink.workspace.id,
+            byUserId: userId
+          });
+          workspace = relink.workspace;
+        } else {
+          // не владелец старой команды или нет новой активной команды
+          await ctx.reply(
+            relink.status === "NOT_ALLOWED" ? ru.team.chatBoundToOtherOrNotOwner : ru.team.archivedNoAccess
+          );
+          return;
+        }
       }
       if (ensured.result === "created") {
-        await deps.workspaceAdminService.setOwner(ensured.workspace.id, userId, false);
-        await deps.workspaceMemberService.upsertOwnerMembership(ensured.workspace.id, userId, {
+        await deps.workspaceAdminService.setOwner(workspace.id, userId, false);
+        await deps.workspaceMemberService.upsertOwnerMembership(workspace.id, userId, {
           tgFirstName: message.from.first_name ?? null,
           tgLastName: message.from.last_name ?? null,
           tgUsername: message.from.username ?? null
         });
       } else {
-        if (ensured.workspace.ownerUserId === userId) {
-          await deps.workspaceMemberService.upsertOwnerMembership(ensured.workspace.id, userId, {
+        if (workspace.ownerUserId === userId) {
+          await deps.workspaceMemberService.upsertOwnerMembership(workspace.id, userId, {
             tgFirstName: message.from.first_name ?? null,
             tgLastName: message.from.last_name ?? null,
             tgUsername: message.from.username ?? null
           });
         } else {
-          await deps.workspaceMemberService.upsertMemberRole(ensured.workspace.id, userId, {
+          await deps.workspaceMemberService.upsertMemberRole(workspace.id, userId, {
             tgFirstName: message.from.first_name ?? null,
             tgLastName: message.from.last_name ?? null,
             tgUsername: message.from.username ?? null
@@ -815,7 +835,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
       const tokenForTask = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
       const draftResult = await deps.taskService.createOrReuseGroupDraft({
         token: tokenForTask,
-        workspaceId: ensured.workspace.id,
+        workspaceId: workspace.id,
         sourceChatId: chatId,
         sourceMessageId,
         sourceText: message.reply_to_message.text ?? message.reply_to_message.caption ?? "",

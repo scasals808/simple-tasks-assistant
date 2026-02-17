@@ -112,4 +112,25 @@ export class WorkspaceRepoPrisma implements WorkspaceRepo {
       return mapWorkspace(workspace);
     });
   }
+
+  async relinkChatIdToWorkspace(chatId: string, targetWorkspaceId: string): Promise<Workspace> {
+    return prisma.$transaction(async (tx) => {
+      const current = await tx.workspace.findUnique({ where: { chatId } });
+
+      if (current && current.id === targetWorkspaceId) {
+        return mapWorkspace(current);
+      }
+      if (current && current.id !== targetWorkspaceId) {
+        await tx.workspace.update({
+          where: { id: current.id },
+          data: { chatId: `archived:${current.id}` }
+        });
+      }
+      const updatedTarget = await tx.workspace.update({
+        where: { id: targetWorkspaceId },
+        data: { chatId }
+      });
+      return mapWorkspace(updatedTarget);
+    });
+  }
 }

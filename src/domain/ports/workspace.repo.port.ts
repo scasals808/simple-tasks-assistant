@@ -20,4 +20,5 @@ export interface WorkspaceRepo {
   findLatestByOwnerUserId(ownerUserId: string): Promise<Workspace | null>;
   updateOwner(workspaceId: string, ownerUserId: string | null): Promise<Workspace>;
   closeWorkspace(workspaceId: string): Promise<Workspace>;
+  relinkChatIdToWorkspace(chatId: string, targetWorkspaceId: string): Promise<Workspace>;
 }

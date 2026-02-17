@@ -73,4 +73,33 @@ export class WorkspaceService {
       return { workspace: fallback, result: "existing" };
     }
   }
+
+  async relinkArchivedChatToOwnerActiveWorkspace(
+    chatId: string,
+    userId: string,
+    title?: string
+  ): Promise<
+    | { status: "RELINKED"; workspace: Workspace }
+    | { status: "NOT_ALLOWED" }
+    | { status: "NO_ACTIVE_OWNED" }
+    | { status: "CHAT_ACTIVE"; workspace: Workspace }
+    | { status: "CHAT_NOT_FOUND" }
+  > {
+    const current = await this.workspaceRepo.findByChatId(chatId);
+    if (!current) {
+      return { status: "CHAT_NOT_FOUND" };
+    }
+    if (current.status === "ACTIVE") {
+      return { status: "CHAT_ACTIVE", workspace: current };
+    }
+    if (current.ownerUserId !== userId) {
+      return { status: "NOT_ALLOWED" };
+    }
+    const activeOwned = await this.workspaceRepo.findActiveByOwnerUserId(userId);
+    if (!activeOwned) {
+      return { status: "NO_ACTIVE_OWNED" };
+    }
+    const relinked = await this.workspaceRepo.relinkChatIdToWorkspace(chatId, activeOwned.id);
+    return { status: "RELINKED", workspace: relinked };
+  }
 }
