@@ -74,6 +74,7 @@ export const ru = {
     taskTitle: (title: string) => `${title}`,
     assignee: (assigneeUserId: string) => `👤 Исполнитель: ${assigneeUserId}`,
     assigneeYou: "👤 Исполнитель: вы",
+    assigneeRemovedWarning: "⚠️ Исполнитель исключён",
     priority: (priority: string) => `⚡ Приоритет: ${priority}`,
     deadline: (value: string) => `⏰ Срок: ${value}`,
     status: (value: string) => `📌 Статус: ${value}`,

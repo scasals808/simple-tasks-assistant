@@ -178,6 +178,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     viewerUserId: string
   ): Promise<void> {
     let assigneeDisplayName: string | undefined;
+    let assigneeRemoved = false;
     if (task.workspaceId) {
       const assigneeMember = await deps.workspaceMemberService.findMember(
         task.workspaceId,
@@ -185,12 +186,13 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
       );
       if (assigneeMember) {
         assigneeDisplayName = renderMemberDisplayName(assigneeMember);
+        assigneeRemoved = assigneeMember.status === "REMOVED";
       }
     }
     const ownerReviewActions = await canOwnerReviewTask(task, viewerUserId);
     await updateOrReply(
       ctx,
-      renderTaskCard(task, viewerUserId, assigneeDisplayName),
+      renderTaskCard(task, viewerUserId, assigneeDisplayName, assigneeRemoved),
       taskActionsKeyboard(
         {
           id: task.id,
