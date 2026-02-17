@@ -4,6 +4,7 @@ import type {
   CreateFromDraftResult,
   DraftStep,
   TaskDraft,
+  TaskReviewDraft,
   TaskRepo
 } from "../../domain/ports/task.repo.port.js";
 import type { Task } from "../../domain/tasks/task.types.js";
@@ -88,6 +89,28 @@ function mapDraft(row: {
   };
 }
 
+function mapReviewDraft(row: {
+  id: string;
+  taskId: string;
+  actorUserId: string;
+  nonce: string;
+  step: string;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
+}): TaskReviewDraft {
+  return {
+    id: row.id,
+    taskId: row.taskId,
+    actorUserId: row.actorUserId,
+    nonce: row.nonce,
+    step: row.step as TaskReviewDraft["step"],
+    status: row.status as TaskReviewDraft["status"],
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt
+  };
+}
+
 function isUniqueViolation(error: unknown): boolean {
   return (
     error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -96,6 +119,53 @@ function isUniqueViolation(error: unknown): boolean {
 }
 
 export class PrismaTaskRepo implements TaskRepo {
+  async upsertActiveReturnCommentDraft(input: {
+    taskId: string;
+    actorUserId: string;
+    nonce: string;
+  }): Promise<TaskReviewDraft> {
+    await prisma.taskReviewDraft.updateMany({
+      where: {
+        actorUserId: input.actorUserId,
+        status: "ACTIVE"
+      },
+      data: {
+        status: "CLOSED"
+      }
+    });
+    const row = await prisma.taskReviewDraft.create({
+      data: {
+        taskId: input.taskId,
+        actorUserId: input.actorUserId,
+        nonce: input.nonce,
+        step: "AWAIT_RETURN_COMMENT",
+        status: "ACTIVE"
+      }
+    });
+    return mapReviewDraft(row);
+  }
+
+  async findActiveReturnCommentDraftByActor(actorUserId: string): Promise<TaskReviewDraft | null> {
+    const row = await prisma.taskReviewDraft.findFirst({
+      where: {
+        actorUserId,
+        status: "ACTIVE",
+        step: "AWAIT_RETURN_COMMENT"
+      },
+      orderBy: {
+        updatedAt: "desc"
+      }
+    });
+    return row ? mapReviewDraft(row) : null;
+  }
+
+  async closeReviewDraft(draftId: string): Promise<void> {
+    await prisma.taskReviewDraft.update({
+      where: { id: draftId },
+      data: { status: "CLOSED" }
+    });
+  }
+
   async create(task: Task): Promise<Task> {
     await prisma.taskDraft.upsert({
       where: { id: task.id },

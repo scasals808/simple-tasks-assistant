@@ -77,13 +77,18 @@ export const ru = {
     nonceExists: "Клик уже обработан.",
     taskNotFound: "Задача недоступна."
   },
+  acceptReview: {
+    confirmPrompt: "Закрыть задачу как принятую?",
+    success: "✅ Принято. Задача закрыта.",
+    forbidden: "Только owner команды может выполнить это действие.",
+    taskNotFound: "Задача недоступна."
+  },
   returnToWork: {
-    confirmPrompt: "Вернуть задачу в работу?",
-    success: "↩️ Вернул в работу. Статус: Активна.",
-    alreadyActive: "Задача уже в статусе Активна.",
-    notAllowed: "Только исполнитель может нажать эту кнопку.",
-    notInWorkspace: "Вы не состоите в этой команде.",
-    nonceExists: "Клик уже обработан.",
+    confirmPromptWithComment: "Вернуть задачу в работу? Нужно будет добавить комментарий.",
+    askComment: "Напишите комментарий одним сообщением.",
+    success: "↩️ Возвращено в работу.",
+    forbidden: "Только owner команды может выполнить это действие.",
+    noActiveDraft: "Нет активного действия для комментария.",
     taskNotFound: "Задача недоступна."
   },
   ownerNotification: {
@@ -112,8 +117,10 @@ export const ru = {
     adminCreateTeam: "Создать команду",
     adminGenerateInvite: "Ссылка-приглашение",
     submitForReview: "✅ Готово",
+    acceptReview: "✅ Принять",
+    acceptReviewConfirm: "✅ Подтвердить",
     returnToWork: "↩️ Вернуть в работу",
-    returnToWorkConfirm: "↩️ Подтвердить",
+    returnToWorkContinue: "↩️ Продолжить",
     confirm: "✅ Подтвердить",
     cancel: "❌ Отмена"
   },

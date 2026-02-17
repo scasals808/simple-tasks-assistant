@@ -33,6 +33,17 @@ export type CreateFromDraftResult =
   | { status: "CREATED"; task: Task }
   | { status: "ALREADY_EXISTS"; task: Task };
 
+export type TaskReviewDraft = {
+  id: string;
+  taskId: string;
+  actorUserId: string;
+  nonce: string;
+  step: "AWAIT_RETURN_COMMENT";
+  status: "ACTIVE" | "CLOSED";
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 export interface TaskRepo {
   create(task: Task): Promise<Task>;
   findById(taskId: string): Promise<Task | null>;
@@ -116,4 +127,12 @@ export interface TaskRepo {
     | { status: "FORBIDDEN" }
     | { status: "SUCCESS"; task: Task }
   >;
+
+  upsertActiveReturnCommentDraft(input: {
+    taskId: string;
+    actorUserId: string;
+    nonce: string;
+  }): Promise<TaskReviewDraft>;
+  findActiveReturnCommentDraftByActor(actorUserId: string): Promise<TaskReviewDraft | null>;
+  closeReviewDraft(draftId: string): Promise<void>;
 }

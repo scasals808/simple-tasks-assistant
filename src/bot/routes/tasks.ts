@@ -75,40 +75,57 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     }
   }
 
-  async function notifyOwnerOnReturnedToWork(
-    ctx: { telegram: { sendMessage(chatId: string, text: string, extra?: unknown): Promise<unknown> } },
-    input: {
+  async function canOwnerReviewTask(task: { workspaceId: string | null }, viewerUserId: string): Promise<boolean> {
+    if (!task.workspaceId) {
+      return false;
+    }
+    const workspace = await deps.workspaceService.findWorkspaceById(task.workspaceId);
+    return workspace?.ownerUserId === viewerUserId;
+  }
+
+  async function replyTaskCardWithActions(
+    ctx: {
+      editMessageText(text: string, extra?: { reply_markup?: unknown }): Promise<unknown>;
+      reply(text: string, extra?: unknown): Promise<unknown>;
+    },
+    task: {
+      id: string;
       workspaceId: string | null;
       sourceText: string;
-    }
+      assigneeUserId: string;
+      priority: string;
+      deadlineAt: Date | null;
+      status: string;
+      sourceChatId: string;
+      sourceMessageId: string;
+      sourceLink: string | null;
+      creatorUserId: string;
+      submittedForReviewAt: Date | null;
+      createdAt: Date;
+      updatedAt: Date;
+      lastReturnComment: string | null;
+      lastReturnAt: Date | null;
+      lastReturnByUserId: string | null;
+    },
+    viewerUserId: string
   ): Promise<void> {
-    if (!input.workspaceId) {
-      return;
-    }
-
-    const workspace = await deps.workspaceService.findWorkspaceById(input.workspaceId);
-    if (!workspace?.ownerUserId) {
-      return;
-    }
-
-    const title = shortenText(input.sourceText, 64);
-    const text = ru.ownerNotification.returnedToWork(title);
-
-    try {
-      await ctx.telegram.sendMessage(workspace.ownerUserId, text);
-    } catch (error: unknown) {
-      const err = error as { response?: { error_code?: number } };
-      const errorCode = err.response?.error_code ?? null;
-      if (errorCode === 400 || errorCode === 403) {
-        console.warn("[bot.owner_notify.failed]", {
-          ownerId: workspace.ownerUserId,
-          error_code: errorCode,
-          kind: "RETURN_TO_WORK"
-        });
-        return;
-      }
-      throw error;
-    }
+    const ownerReviewActions = await canOwnerReviewTask(task, viewerUserId);
+    await updateOrReply(
+      ctx,
+      renderTaskCard(task, viewerUserId),
+      taskActionsKeyboard(
+        {
+          id: task.id,
+          sourceText: task.sourceText,
+          assigneeUserId: task.assigneeUserId,
+          status: task.status
+        },
+        viewerUserId,
+        createActionNonce(),
+        ownerReviewActions,
+        true
+      ).reply_markup
+    );
   }
 
   function renderMemberDisplayName(member: {
@@ -187,6 +204,8 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
       }
 
       const body = result.tasks.map((task, index) => renderTaskLine(task, index)).join("\n\n");
+      const workspace = await deps.workspaceService.findWorkspaceById(workspaceId);
+      const ownerReviewActions = workspace?.ownerUserId === userId;
       const actionButtons = result.tasks.map((task) =>
         taskActionsKeyboard(
           {
@@ -196,7 +215,8 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
             status: task.status
           },
           userId,
-          createActionNonce()
+          createActionNonce(),
+          ownerReviewActions
         ).reply_markup?.inline_keyboard?.[0] ?? []
       );
       logTaskList({
@@ -601,21 +621,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
       return;
     }
 
-    await updateOrReply(
-      ctx,
-      renderTaskCard(task, viewerUserId),
-      taskActionsKeyboard(
-        {
-          id: task.id,
-          sourceText: task.sourceText,
-          assigneeUserId: task.assigneeUserId,
-          status: task.status
-        },
-        viewerUserId,
-        createActionNonce(),
-        true
-      ).reply_markup
-    );
+    await replyTaskCardWithActions(ctx, task, viewerUserId);
 
   });
 
@@ -645,21 +651,7 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
     });
 
     if (result.status === "SUCCESS") {
-      await updateOrReply(
-        ctx,
-        renderTaskCard(result.task, String(ctx.from.id)),
-        taskActionsKeyboard(
-          {
-            id: result.task.id,
-            sourceText: result.task.sourceText,
-            assigneeUserId: result.task.assigneeUserId,
-            status: result.task.status
-          },
-          String(ctx.from.id),
-          createActionNonce(),
-          true
-        ).reply_markup
-      );
+      await replyTaskCardWithActions(ctx, result.task, String(ctx.from.id));
       await notifyOwnerOnReviewSubmitted(ctx, {
         workspaceId: result.task.workspaceId,
         taskId: result.task.id,
@@ -699,80 +691,79 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
       await ctx.reply(ru.common.taskNotFound);
       return;
     }
-    await updateOrReply(
-      ctx,
-      renderTaskCard(task, viewerUserId),
-      taskActionsKeyboard(
-        {
-          id: task.id,
-          sourceText: task.sourceText,
-          assigneeUserId: task.assigneeUserId,
-          status: task.status
-        },
-        viewerUserId,
-        createActionNonce(),
-        true
-      ).reply_markup
-    );
+    await replyTaskCardWithActions(ctx, task, viewerUserId);
   });
 
-  bot.action(/^task_return_work:([^:]+):([^:]+)$/, async (ctx) => {
+  bot.action(/^task_accept:ask:([^:]+)$/, async (ctx) => {
     const taskId = ctx.match[1];
-    const nonce = ctx.match[2];
+    const nonce = createActionNonce();
     await ctx.answerCbQuery();
     await updateOrReply(
       ctx,
-      ru.returnToWork.confirmPrompt,
+      ru.acceptReview.confirmPrompt,
       Markup.inlineKeyboard([
-        [Markup.button.callback(ru.buttons.returnToWorkConfirm, `cf:rw:${taskId}:${nonce}`)],
-        [Markup.button.callback(ru.buttons.cancel, `cx:rw:${taskId}:${nonce}`)]
+        [Markup.button.callback(ru.buttons.acceptReviewConfirm, `task_accept:confirm:${taskId}:${nonce}`)],
+        [Markup.button.callback(ru.buttons.cancel, `task_return:cancel:${taskId}`)]
       ]).reply_markup
     );
   });
 
-  bot.action(/^cf:rw:([^:]+):([^:]+)$/, async (ctx) => {
+  bot.action(/^task_accept:confirm:([^:]+):([^:]+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     const nonce = ctx.match[2];
     await ctx.answerCbQuery();
-
-    const result = await deps.taskService.returnToWork({
+    const result = await deps.taskService.acceptReview({
       taskId,
       actorUserId: String(ctx.from.id),
-      comment: "",
       nonce
     });
-
     if (result.status === "SUCCESS") {
-      await updateOrReply(
-        ctx,
-        renderTaskCard(result.task, String(ctx.from.id)),
-        taskActionsKeyboard(
-          {
-            id: result.task.id,
-            sourceText: result.task.sourceText,
-            assigneeUserId: result.task.assigneeUserId,
-            status: result.task.status
-          },
-          String(ctx.from.id),
-          createActionNonce(),
-          true
-        ).reply_markup
-      );
-      await notifyOwnerOnReturnedToWork(ctx, {
-        workspaceId: result.task.workspaceId,
-        sourceText: result.task.sourceText
-      });
-      await ctx.reply(ru.returnToWork.success);
+      await replyTaskCardWithActions(ctx, result.task, String(ctx.from.id));
+      await ctx.reply(ru.acceptReview.success);
       return;
     }
     if (result.status === "FORBIDDEN") {
-      await ctx.reply(ru.returnToWork.notAllowed);
+      await ctx.reply(ru.acceptReview.forbidden);
+      return;
+    }
+    await ctx.reply(ru.acceptReview.taskNotFound);
+  });
+
+  bot.action(/^task_return:ask:([^:]+)$/, async (ctx) => {
+    const taskId = ctx.match[1];
+    const nonce = createActionNonce();
+    await ctx.answerCbQuery();
+    await updateOrReply(
+      ctx,
+      ru.returnToWork.confirmPromptWithComment,
+      Markup.inlineKeyboard([
+        [Markup.button.callback(ru.buttons.returnToWorkContinue, `task_return:continue:${taskId}:${nonce}`)],
+        [Markup.button.callback(ru.buttons.cancel, `task_return:cancel:${taskId}`)]
+      ]).reply_markup
+    );
+  });
+
+  bot.action(/^task_return:continue:([^:]+):([^:]+)$/, async (ctx) => {
+    const taskId = ctx.match[1];
+    const nonce = ctx.match[2];
+    await ctx.answerCbQuery();
+    const result = await deps.taskService.beginReturnToWorkComment({
+      taskId,
+      actorUserId: String(ctx.from.id),
+      nonce
+    });
+    if (result.status === "READY") {
+      await ctx.reply(ru.returnToWork.askComment);
+      return;
+    }
+    if (result.status === "FORBIDDEN") {
+      await ctx.reply(ru.returnToWork.forbidden);
       return;
     }
     await ctx.reply(ru.returnToWork.taskNotFound);
   });
 
-  bot.action(/^cx:rw:([^:]+):([^:]+)$/, async (ctx) => {
+  bot.action(/^task_return:cancel:([^:]+)$/, async (ctx) => {
     const taskId = ctx.match[1];
     await ctx.answerCbQuery(ru.confirm.canceled);
     const viewerUserId = String(ctx.from.id);
@@ -781,20 +772,34 @@ export function registerTaskRoutes(bot: Telegraf, deps: BotDeps): void {
       await ctx.reply(ru.common.taskNotFound);
       return;
     }
-    await updateOrReply(
-      ctx,
-      renderTaskCard(task, viewerUserId),
-      taskActionsKeyboard(
-        {
-          id: task.id,
-          sourceText: task.sourceText,
-          assigneeUserId: task.assigneeUserId,
-          status: task.status
-        },
-        viewerUserId,
-        createActionNonce(),
-        true
-      ).reply_markup
-    );
+    await replyTaskCardWithActions(ctx, task, viewerUserId);
+  });
+
+  bot.on("text", async (ctx, next) => {
+    if (ctx.chat.type !== "private") {
+      return next();
+    }
+    const text = (ctx.message as { text?: string }).text ?? "";
+    const result = await deps.taskService.applyReturnCommentFromDraft({
+      actorUserId: String(ctx.from.id),
+      comment: text
+    });
+    if (result.status === "NO_ACTIVE_DRAFT") {
+      return next();
+    }
+    if (result.status === "SUCCESS") {
+      await replyTaskCardWithActions(ctx, result.task, String(ctx.from.id));
+      await ctx.reply(ru.returnToWork.success);
+      return;
+    }
+    if (result.status === "FORBIDDEN") {
+      await ctx.reply(ru.returnToWork.forbidden);
+      return;
+    }
+    if (result.status === "NOT_FOUND") {
+      await ctx.reply(ru.returnToWork.taskNotFound);
+      return;
+    }
+    await ctx.reply(ru.returnToWork.noActiveDraft);
   });
 }

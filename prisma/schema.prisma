@@ -31,9 +31,26 @@ model Task {
   createdByDraft TaskDraft[] @relation("TaskDraftCreatedTask")
   workspace      Workspace?   @relation(fields: [workspaceId], references: [id])
   actions        TaskAction[]
+  reviewDrafts   TaskReviewDraft[]
 
   @@unique([sourceChatId, sourceMessageId])
   @@index([workspaceId])
+}
+
+model TaskReviewDraft {
+  id          String   @id @default(cuid())
+  taskId      String
+  actorUserId String
+  nonce       String   @unique
+  step        String
+  status      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  task Task @relation(fields: [taskId], references: [id])
+
+  @@index([actorUserId, status])
+  @@index([taskId, status])
 }
 
 model TaskAction {

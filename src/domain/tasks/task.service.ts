@@ -454,4 +454,48 @@ export class TaskService {
     );
     return result;
   }
+
+  async beginReturnToWorkComment(input: {
+    taskId: string;
+    actorUserId: string;
+    nonce: string;
+  }): Promise<{ status: "NOT_FOUND" } | { status: "FORBIDDEN" } | { status: "READY" }> {
+    const task = await this.taskRepo.findById(input.taskId);
+    if (!task || !task.workspaceId || task.status !== "ON_REVIEW") {
+      return { status: "NOT_FOUND" };
+    }
+    const membership = await this.workspaceMemberRepo.findMember(task.workspaceId, input.actorUserId);
+    if (!membership || membership.role !== "OWNER") {
+      return { status: "FORBIDDEN" };
+    }
+    await this.taskRepo.upsertActiveReturnCommentDraft({
+      taskId: input.taskId,
+      actorUserId: input.actorUserId,
+      nonce: input.nonce
+    });
+    return { status: "READY" };
+  }
+
+  async applyReturnCommentFromDraft(input: {
+    actorUserId: string;
+    comment: string;
+  }): Promise<
+    | { status: "NO_ACTIVE_DRAFT" }
+    | { status: "NOT_FOUND" }
+    | { status: "FORBIDDEN" }
+    | { status: "SUCCESS"; task: Task }
+  > {
+    const draft = await this.taskRepo.findActiveReturnCommentDraftByActor(input.actorUserId);
+    if (!draft) {
+      return { status: "NO_ACTIVE_DRAFT" };
+    }
+    const result = await this.returnToWork({
+      taskId: draft.taskId,
+      actorUserId: input.actorUserId,
+      comment: input.comment,
+      nonce: draft.nonce
+    });
+    await this.taskRepo.closeReviewDraft(draft.id);
+    return result;
+  }
 }

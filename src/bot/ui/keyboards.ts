@@ -82,6 +82,7 @@ export function taskActionsKeyboard(
   },
   viewerUserId: string,
   nonce: string,
+  showOwnerReviewActions = false,
   inContext = false
 ) {
   const row = [];
@@ -91,8 +92,9 @@ export function taskActionsKeyboard(
   if (task.assigneeUserId === viewerUserId && task.status === "ACTIVE") {
     row.push(Markup.button.callback(ru.buttons.submitForReview, `task_done:${task.id}:${nonce}`));
   }
-  if (task.assigneeUserId === viewerUserId && task.status === "ON_REVIEW") {
-    row.push(Markup.button.callback(ru.buttons.returnToWork, `task_return_work:${task.id}:${nonce}`));
+  if (showOwnerReviewActions && task.status === "ON_REVIEW") {
+    row.push(Markup.button.callback(ru.buttons.acceptReview, `task_accept:ask:${task.id}`));
+    row.push(Markup.button.callback(ru.buttons.returnToWork, `task_return:ask:${task.id}`));
   }
   return Markup.inlineKeyboard(row.length > 0 ? [row] : []);
 }
